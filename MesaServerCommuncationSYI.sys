@@ -1,0 +1,113 @@
+MODULE ServerCommuncation(SYSMODULE)
+VAR socketdev clientSocket;
+VAR socketdev serverSocket;
+VAR num retry_no    := 0;
+CONST string IP_ABB := "192.168.125.202";
+
+
+
+! Procedure to create a TCP client socket and connect to a server
+! Retries connection up to 5 times on timeout before raising an error
+PROC ClientCreateAndConnect()
+    ! Create the client socket object
+    SocketCreate clientSocket;
+    
+    ! Attempt to connect clientSocket to server IP and port 5000
+    SocketConnect clientSocket, IP_ABB, 5000;
+    
+    ! Begin error handling block for connection attempt
+    ERROR  
+    
+    ! Check if error is a socket timeout
+    IF ERRNO = ERR_SOCK_TIMEOUT THEN
+        ! Retry up to 5 times with 1 second delay between attempts
+        IF retry_no < 5 THEN
+            WaitTime 1;
+            retry_no := retry_no + 1;
+            RETRY; ! Retry connection by restarting procedure
+        ELSE
+            RAISE; ! Raise error for Socket Timeout after maximum retries
+        ENDIF
+    ELSE 
+        RAISE; ! Raise error (other errors than Socket Timeout)
+    ENDIF
+    
+ENDPROC
+
+
+! ZZZ NEEDS TO BE TESTED PROPERLY
+! Procedure to close the TCP client socket connection if open
+! Closes clientSocket and logs connection status
+PROC ClientCloseAndDisconnect()
+    IF SocketGetStatus(clientSocket) = SOCKET_CONNECTED THEN
+        SocketClose clientSocket; ! Close client socket connection
+        TPWrite "CLIENT: Connection Closed."; ! Log closure message
+    ELSE 
+        TPWrite "CLIENT: Connection already closed"; ! Log if already closed
+    ENDIF
+ENDPROC
+
+
+! Not used RN ZZZ
+PROC ServerCreateAndConnect()
+    ! Handshake between server and client:
+    ! - Creates socket.
+    ! - Waits for incoming TCP connection.
+    VAR string clientIP;
+    
+    VAR string ipController:= IP_ABB;  !PERS string ipController:= "192.168.125.1"; !robot default IP
+    VAR num serverPort:= 5000;
+    !TPErase;
+    SocketCreate serverSocket;
+    SocketBind serverSocket, ipController, serverPort;
+    SocketListen serverSocket;
+    TPWrite "SERVER: Server waiting for incoming connections ...";
+    WHILE SocketGetStatus(clientSocket) <> SOCKET_CONNECTED DO
+        SocketAccept serverSocket,clientSocket \ClientAddress:=clientIP \Time:=WAIT_MAX;
+        IF SocketGetStatus(clientSocket) <> SOCKET_CONNECTED THEN
+            TPWrite "SERVER: Problem serving an incoming connection.";
+            TPWrite "SERVER: Try reconnecting.";
+        ENDIF
+        !//Wait 0.5 seconds for the next reconnection
+        WaitTime 0.5;
+    ENDWHILE
+    TPWrite "SERVER: Connected to IP " + clientIP;
+  ENDPROC
+
+  
+  
+! Not used RN ZZZ
+PROC ServerCloseAndDisconnect ()
+    !Handshake between server and client:
+    ! - Close socket.
+    SocketClose clientSocket;
+    SocketClose serverSocket; 
+    TPWrite "SERVER: Connection Closed .";
+ENDPROC  
+  
+
+  
+! Sends a string message to the connected TCP client socket
+PROC TcpSendMessage(string Message)
+    IF SocketGetStatus(clientSocket) = SOCKET_CONNECTED THEN
+        SocketSend clientSocket \Str:=Message;
+    ELSE
+        TPWrite "TcpSendMessage: client socket not connected.";
+    ENDIF
+ENDPROC
+
+! Receives a string message from the connected TCP client socket
+! Returns the received message or empty string if not connected
+FUNC string ReceiveMessage()
+VAR string ReceivedString;
+    IF SocketGetStatus(clientSocket) = SOCKET_CONNECTED THEN
+        SocketReceive clientSocket \Str:=ReceivedString \Time:=WAIT_MAX;
+        RETURN ReceivedString;
+    ELSE
+        TPWrite "ReceiveMessage: client socket not connected.";
+        RETURN "";
+    ENDIF
+ENDFUNC
+
+    
+ENDMODULE
