@@ -4,7 +4,7 @@ import numpy as np
 import math
 import sys
 import os
-import Communication
+import abb_robot_comm
 from pypylon import genicam
 from pypylon import pylon
 
@@ -24,7 +24,17 @@ exitCode = 0
 
 def main():
     if USE_ROBOT:
+
         print("LOG: Using Robot. Setting up TCP Server now")
+        Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
+        Robot.connect()
+        Robot.communicate("Hello from Python")
+        Robot.disconnect()
+
+        print("LOG: Using Robot. Setting up TCP Server now")
+
+    else:
+        print("LOG: Not using Robot. Skipping TCP Server setup")
 
 
 # Press the green button in the gutter to run the script.
