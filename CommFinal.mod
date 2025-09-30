@@ -7,7 +7,6 @@ MODULE Comm
     
     VAR robtarget recvCoordi:=[[374.39,143.84,-94.15],[0.536346,-0.00756933,-0.0055927,-0.843946],[0,-1,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS wobjdata wobj1 := [FALSE, TRUE, "", [[307.824,-178.101,4.12927],[0.00124084,0.78718,0.616722,0.000969443]], [[0,0,0],[1,0,0,0]]];
-	!!TASK PERS tooldata toolVacuum_old:=[TRUE,[[-91.8764,3.18803,186.338],[1,0,0,0]],[1,[20,20,25],[1,0,0,0],0,0,0]];
     TASK PERS tooldata toolVacuum:=[TRUE,[[-89.8475,2.72208,187.55],[1,0,0,0]],[1,[20,20,25],[1,0,0,0],0,0,0]];
 	CONST robtarget pAway:=[[451.32,-82.15,113.60],[0.00472123,-0.55667,0.830604,-0.0138772],[-1,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 	CONST robtarget PosTemp:=[[89.97,100.74,-63.96],[0.0692979,0.00778393,0.00578711,-0.997549],[-1,-1,-2,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
@@ -16,38 +15,14 @@ MODULE Comm
 	
     
     PROC main()
-        !Robotserver; 
         RobotClient;
     ENDPROC  
-    
-    
-    PROC Robotserver()
-    VAR string receivedStringCoords;   !//Received string
-    VAR string sendString;       !//Reply string
-    VAR pos pickpos;
-    VAR bool ok;
 
-        !Create Server in controller
-        ServerCreateAndConnect;
-        
-        !Handshake
-        sendString:="request coords";
-        TPWrite "Sending to camerasystem:"+sendString;
-        SendMessage(sendString);
-        receivedStringCoords:=ReciveMessage();
-        TPWrite "Camera Answer:"+receivedStringCoords;	
-        ok:=StrToval(receivedStringCoords,pickpos);
-        WaitTime 1;
-        sendString:="thanks";
-        SendMessage(sendString);
-        ServerCloseAndDisconnect;
-        WaitTime 5;
-    ENDPROC
     
     
 PROC RobotClient()
-    VAR string receivedStringCoords;   !//Received string
-    VAR string sendString;       !//Reply string
+    VAR string receivedStringCoords;    !//Received string
+    VAR string sendString;              !//Reply string
     VAR pos pickpos;
     VAR bool ok;
     VAR num sendNum;
@@ -66,10 +41,14 @@ PROC RobotClient()
     VAR num i := 1;
     VAR num commaPos;
   
-    !Get String from python
+    !Connect TCP Client to Server
     ClientCreateAndConnect;
-    receivedMessage:=ReciveMessage();
+    
+    !Get String from python
+    receivedMessage:=TCPReceiveMessage();
     waitTime(.25);
+    
+    WaitTime(100);
     
     !Ask for color with string
     TPReadNum color, receivedMessage;
@@ -80,9 +59,9 @@ PROC RobotClient()
     TPErase;
     
     !Get String from python
-    receivedMessage:=ReciveMessage();
+    receivedMessage:=TCPReceiveMessage();
     !Ask for shape with string
-    TPReadNum shape, TCPreceivedMessage;
+    TPReadNum shape, receivedMessage;
     !shape := 12345;
 
     !Send userinput to python
@@ -90,7 +69,7 @@ PROC RobotClient()
     SendMessage(NumToStr(shape,0)); 
         
     !Move robot out of camera view
-    receivedMessage := ReciveMessage();
+    receivedMessage := TCPReceiveMessage();
     WaitTime .5;
     MoveJ pAway, v1000,z100,toolVacuum\WObj:=wobj0;
     SendMessage("Moving out of frame finished");
@@ -155,6 +134,7 @@ PROC SplitString(string source, string delimiter, INOUT string resultArray{*})
 ENDPROC
 
 
+
 PROC pickPlacePart(num x_coord,num y_coord,num orientation,num shape)
     VAR robtarget target;
     CONST num xOffset := 2;
@@ -180,6 +160,8 @@ PROC pickPlacePart(num x_coord,num y_coord,num orientation,num shape)
 
 ENDPROC
     
+
+
 FUNC robtarget getPlacePos(num shape, num orientation)
     
     VAR robtarget target := pApproachPlace;
@@ -211,6 +193,7 @@ FUNC robtarget getPlacePos(num shape, num orientation)
 ENDFUNC
 
 
+
 FUNC robtarget RotZ(num angle_deg, robtarget target)
      VAR orient rotZOrient;
      VAR num anglex;
@@ -229,6 +212,7 @@ FUNC robtarget RotZ(num angle_deg, robtarget target)
      target.rot := OrientZYX(anglez, angley, anglex);
      RETURN target;
 ENDFUNC
+
 
 
 ENDMODULE

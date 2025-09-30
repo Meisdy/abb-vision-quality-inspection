@@ -98,7 +98,7 @@ ENDPROC
 
 ! Receives a string message from the connected TCP client socket
 ! Returns the received message or empty string if not connected
-FUNC string ReceiveMessage()
+FUNC string TCPReceiveMessage()
 VAR string ReceivedString;
     IF SocketGetStatus(clientSocket) = SOCKET_CONNECTED THEN
         SocketReceive clientSocket \Str:=ReceivedString \Time:=WAIT_MAX;
