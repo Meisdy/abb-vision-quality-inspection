@@ -1,15 +1,32 @@
-# This is a sample Python script.
+import cv2
+import socket
+import numpy as np
+import math
+import sys
+import os
+import Communication
+from pypylon import genicam
+from pypylon import pylon
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+os.environ["PYLON_CAMEMU"] = "3"
+
+# Constants
+USE_CAMERA = False
+USE_ROBOT = False
+IMAGE_NAME = 'Image6.jpg'
+IP_ABB_ROBOT = '192.168.125.202'
+Picture = []
+
+# Camera Const
+maxCamerasToUse = 1
+exitCode = 0
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+def main():
+    if USE_ROBOT:
+        print("LOG: Using Robot. Setting up TCP Server now")
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
+    main()
