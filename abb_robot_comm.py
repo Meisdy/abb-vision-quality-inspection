@@ -58,46 +58,74 @@ class RobotComm:
         except socket.error as e:
             logging.error(f"Socket error on disconnect: {e}")
 
-    def communicate(self, message=None):
+    def send_message(self, message: str) -> bool:
         """
-        Send and receive messages with the client. Server is the initiator.
+        Send a message to the client.
 
         Args:
-            message (str, optional): Message to send. If None, prompts user input.
+            message (str): Message to send.
 
         Returns:
-            str or None: Received message from client, or None on error.
+            bool: True if send succeeded, else False.
+        """
+        try:
+            self.client_socket.send(message.encode("UTF-8"))
+            logging.info(f"Message sent to client: {message}")
+            return True
+
+        except (socket.error, OSError) as e:
+            logging.error(f"Error sending message: {e}")
+            return False
+
+    def receive_message(self) -> str | None:
+        """
+        Receive a message from the client. Will wait until a message comes in.
+
+        Returns:
+            str or None: Received message decoded, or None if error/none.
+        """
+        try:
+            if self.client_socket:
+                data = self.client_socket.recv(4096)
+                message = data.decode("latin-1")
+                logging.info(f"Received message from client: {message}")
+                return message
+            else:
+                logging.error("Receive failed: No client socket connected.")
+                return None
+
+        except (socket.error, OSError) as e:
+            logging.error(f"Error receiving message: {e}")
+            return None
+
+    def communicate(self, message=None):
+        """
+        Combined send and receive.
+
+        Args:
+            message (str, optional): Message to send. If None, prompts user.
+
+        Returns:
+            str or None: Received message or None on communication error.
         """
         try:
             while True:
-                # Get message from argument or user input
                 if message is None:
-                    user_input = input("Please type your message: ")
+                    user_message = input("Please type your message: ")
                 else:
-                    user_input = message
+                    user_message = message
 
-                # Check for quit command
-                if user_input.lower() == "quit":
-                    # Send quit command and receive final message
-                    self.client_socket.send(user_input.encode("UTF-8"))
-                    logging.info("Goodbye!")
-                    if self.client_socket:
-                        client_message = self.client_socket.recv(4094)
-                        client_message = client_message.decode("latin-1")
-                        logging.info(f"The received message is: {client_message}")
-                        return client_message
+                if user_message.lower() == "quit":
+                    if self.send_message(user_message):
+                        logging.info("Goodbye!")
+                        return self.receive_message()
                     break
-
                 else:
-                    # Send regular message and receive response
-                    self.client_socket.send(user_input.encode("UTF-8"))
-                    logging.info(f"Message sent to client: {user_input}")
-                    if self.client_socket:
-                        client_message = self.client_socket.recv(4094)
-                        client_message = client_message.decode("latin-1")
-                        logging.info(f"The received message is: {client_message}")
-                        return client_message
-
-        except (socket.error, OSError) as e:
-            logging.error(f"Communication error: {e}")
+                    if self.send_message(user_message):
+                        return self.receive_message()
+        except Exception as e:
+            logging.error(f"Communication failure: {e}")
             return None
+
+
+
