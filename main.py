@@ -1,3 +1,4 @@
+import logging
 import cv2
 import socket
 import numpy as np
@@ -12,35 +13,38 @@ os.environ["PYLON_CAMEMU"] = "3"
 
 # Constants
 USE_CAMERA = False
-USE_ROBOT = False
-#IMAGE_NAME = 'Image6.jpg'
-IP_ABB_ROBOT = '192.168.125.202'
-Picture = []
+USE_ROBOT = True
+IP_ABB_ROBOT = '192.168.125.6'
 
 # Camera Const
 maxCamerasToUse = 1
 exitCode = 0
 
 
+def setup_logging():
+    class WhiteInfoFormatter(logging.Formatter):
+        WHITE = '\033[97m'
+        RESET = '\033[0m'
+
+        def format(self, record):
+            msg = super().format(record)
+            if record.levelno == logging.INFO:
+                return f"{self.WHITE}{msg}{self.RESET}"
+            return msg
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(WhiteInfoFormatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%H:%M:%S'))
+    logging.getLogger().handlers = [handler]
+    logging.getLogger().setLevel(logging.INFO)
+
+
 def main():
-    if USE_ROBOT:
+    setup_logging()
 
-        # Testing TCP Server with ABB Robot
-        Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
-        Robot.connect()
-        answer = Robot.communicate("Vision System Ready")
-        if answer == "Robot ready":
-            print("LOG: Robot is ready. Proceeding with vision system tasks.")
-        else:
-            print("LOG: Robot did not respond as expected. Check connection.")
-            sys.exit(1)
-
-        # Wait for user input to disconnect
-        user_input = input("Press Enter to disconnect from the robot...")
-        Robot.disconnect()
-
-    else:
-        sys.exit(1)
+    # Testing TCP Server with ABB Robot
+    Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
+    Robot.connect()
+    Robot.communicate("Vision System Ready")
 
 
 # Press the green button in the gutter to run the script.
