@@ -87,6 +87,11 @@ class RobotComm:
         try:
             if self.client_socket:
                 data = self.client_socket.recv(4096)
+                if len(data) == 0:
+                    # Client disconnected
+                    logging.info("Client closed connection")
+                    self.disconnect()
+                    return None
                 message = data.decode("latin-1")
                 logging.info(f"Received message from client: {message}")
                 return message
