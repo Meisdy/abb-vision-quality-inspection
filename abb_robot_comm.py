@@ -1,10 +1,8 @@
 # abb_robot_comm.py
-
 import socket
 import logging
 
-# Configure logging to output to terminal with timestamp and log level
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 
 class RobotComm:
@@ -15,7 +13,7 @@ class RobotComm:
         Initialize RobotComm with IP and port.
 
         Args:
-            ip (str): IP address to bind.
+            ip (str): IP address to bind
             port (int): Port to bind (default: 5000).
         """
         self.ip = ip
@@ -33,15 +31,15 @@ class RobotComm:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.bind((self.ip, self.port))
             self.socket.listen()
-            logging.info("Looking for TCP client")
+            logger.info("Looking for TCP client")
 
             # Accept incoming client connection
             (self.client_socket, self.client_ip) = self.socket.accept()
-            logging.info(f"Robot at address {self.client_ip} connected.")
-            logging.info("If you would like to end the program, enter 'quit'.")
+            logger.info(f"Robot at address {self.client_ip} connected.")
+            logger.info("If you would like to end the program, enter 'quit'.")
 
         except socket.error as e:
-            logging.error(f"Socket error on connect: {e}")
+            logger.error(f"Socket error on connect: {e}")
 
     def disconnect(self):
         """
@@ -53,10 +51,10 @@ class RobotComm:
                 self.client_socket.close()
                 self.client_socket = None
                 self.socket = None
-                logging.info("Disconnected from client.")
+                logger.info("Disconnected from client.")
 
         except socket.error as e:
-            logging.error(f"Socket error on disconnect: {e}")
+            logger.error(f"Socket error on disconnect: {e}")
 
     def send_message(self, message: str) -> bool:
         """
@@ -70,11 +68,11 @@ class RobotComm:
         """
         try:
             self.client_socket.send(message.encode("UTF-8"))
-            logging.info(f"Message sent to client: {message}")
+            logger.info(f"Message sent to client: {message}")
             return True
 
         except (socket.error, OSError) as e:
-            logging.error(f"Error sending message: {e}")
+            logger.error(f"Error sending message: {e}")
             return False
 
     def receive_message(self) -> str | None:
@@ -89,18 +87,18 @@ class RobotComm:
                 data = self.client_socket.recv(4096)
                 if len(data) == 0:
                     # Client disconnected
-                    logging.info("Client closed connection")
+                    logger.info("Client closed connection")
                     self.disconnect()
                     return None
                 message = data.decode("latin-1")
-                logging.info(f"Received message from client: {message}")
+                logger.info(f"Received message from client: {message}")
                 return message
             else:
-                logging.error("Receive failed: No client socket connected.")
+                logger.error("Receive failed: No client socket connected.")
                 return None
 
         except (socket.error, OSError) as e:
-            logging.error(f"Error receiving message: {e}")
+            logger.error(f"Error receiving message: {e}")
             return None
 
     def communicate(self, message=None):
@@ -122,15 +120,12 @@ class RobotComm:
 
                 if user_message.lower() == "quit":
                     if self.send_message(user_message):
-                        logging.info("Goodbye!")
+                        logger.info("Goodbye!")
                         return self.receive_message()
                     break
                 else:
                     if self.send_message(user_message):
                         return self.receive_message()
         except Exception as e:
-            logging.error(f"Communication failure: {e}")
+            logger.error(f"Communication failure: {e}")
             return None
-
-
-
