@@ -60,7 +60,7 @@ class RobotComm:
 
     def communicate(self, message=None):
         """
-        Send and receive messages with the client.
+        Send and receive messages with the client. Server is the initiator.
 
         Args:
             message (str, optional): Message to send. If None, prompts user input.
