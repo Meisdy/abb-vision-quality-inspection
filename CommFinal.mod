@@ -15,14 +15,56 @@ MODULE Comm
 	
     
     PROC main()
-        RobotClient;
+        !SetupPlcCom;           !Setup PLC com. (if necessary)
+        SetupVisionSystem;
+        !GetPart;               !Pickup Part and place to Camera System
+        !VisionEvaluation;      !Evaluate Part using Vision Computer 
+        !ProcessPart            !Move Part away
+        !Give info to PLC
+        !Home system
+        
+        RobotClientTest;
     ENDPROC  
+    
+    
+PROC SetupPlcCom()
+    ! Here is Setup for PLC if needed
+ENDPROC
 
+PROC SetupVisionSystem()
+    !Create and Connect TCP Client to Server
+    ClientCreateAndConnect;
+    
+    !Wait for Server message
+    receivedMessage:=TCPReceiveMessage();
+    TPWrite("Server message: "+receivedMessage);
+    waitTime(.25);
+    
+    !Respond to Server
+    TCPSendMessage("Message received.");
+    
+    WaitTime(150);
+    ClientCloseAndDisconnect;
+ENDPROC
+
+PROC GetPart()
+    
+    ! Get Start message and pickup location from PLC
+    ! Move to right pickup location
+    ! Pickup Part
+    ! Move to Camera System
+    ! (Place Part)
+
+ENDPROC
+
+PROC VisionEvaluation()
+    ! Send Request to Vision PC. Maybe change functions so Client is Initiator here... Or use quickfix in which Setup VIsion gets a new message and will just respond here. 
+ENDPROC
     
     
 PROC RobotClient()
-    VAR string receivedStringCoords;    !//Received string
-    VAR string sendString;              !//Reply string
+    VAR string receivedStringCoords;   !//Received string
+    VAR string sendString;       !//Reply string
     VAR pos pickpos;
     VAR bool ok;
     VAR num sendNum;
@@ -41,25 +83,21 @@ PROC RobotClient()
     VAR num i := 1;
     VAR num commaPos;
   
-    !Connect TCP Client to Server
-    ClientCreateAndConnect;
-    
     !Get String from python
-    receivedMessage:=TCPReceiveMessage();
+    ClientCreateAndConnect;
+    receivedMessage:=ReciveMessage();
     waitTime(.25);
-    
-    WaitTime(100);
     
     !Ask for color with string
     TPReadNum color, receivedMessage;
     !color := 12345;
     
     !Send userinput to python
-    TCPSendMessage(NumToStr(color,0));
+    SendMessage(NumToStr(color,0));
     TPErase;
     
     !Get String from python
-    receivedMessage:=TCPReceiveMessage();
+    receivedMessage:=ReciveMessage();
     !Ask for shape with string
     TPReadNum shape, receivedMessage;
     !shape := 12345;
@@ -69,7 +107,7 @@ PROC RobotClient()
     SendMessage(NumToStr(shape,0)); 
         
     !Move robot out of camera view
-    receivedMessage := TCPReceiveMessage();
+    receivedMessage := ReciveMessage();
     WaitTime .5;
     MoveJ pAway, v1000,z100,toolVacuum\WObj:=wobj0;
     SendMessage("Moving out of frame finished");
@@ -107,6 +145,7 @@ PROC RobotClient()
     ENDWHILE 
     
 ENDPROC     
+    
 
 
 PROC SplitString(string source, string delimiter, INOUT string resultArray{*})
