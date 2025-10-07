@@ -1,64 +1,23 @@
-MODULE MesaMain
-    CONST robtarget pHome:=[[1443.05,-78.10,1374.39],[0.041699,0.0440525,0.998159,-0.000109628],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+MODULE MesaMainSYI
+    CONST wobjdata wobjTable:=[FALSE,TRUE,"",[[1324.77,-472.104,426.917],[0.999992,0.000929973,-0.000683746,0.00391044]],[[0,0,0],[1,0,0,0]]];
+    CONST tooldata tGripper:=[TRUE,[[0.51636,-0.710444,275.457],[1,0,0,0]],[26,[80,0,180],[1,0,0,0],0,0,0]];
+    CONST tooldata tPen:=[TRUE,[[-180.096,-2.75697,367.367],[1,0,0,0]],[22.7,[80,0,180],[1,0,0,0],0,0,0]];
+    CONST robtarget pHomeTable:=[[1446.85,-17.16,775.21],[0.00187601,-0.0534411,-0.998569,-0.00117683],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pHome:=[[1250.10,-20.07,1542.03],[0.0114343,0.00963583,0.999878,-0.00453267],[-1,-1,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 
 
     PROC main()
-        SetupPlcCom;           !Setup PLC com. (if necessary)
+        !SetupPlcCom;           !Setup PLC com. (if necessary)
         !SetupVisionSystem;
-        !GetPart;               !Pickup Part and place to Camera System
+        GetPart;               !Pickup Part and place to Camera System
         !VisionEvaluation;      !Evaluate Part using Vision Computer
         !ProcessPart            !Move Part away
         !Give info to PLC
-        !Home system
+        
+        ResetSystem;
 
 
     ENDPROC
-
-
-!    PROC SetupPlcCom()
-!        ! Read and display the status of PLC input signals mapped via Profinet
-    
-!        VAR signal IxABBStart := DI.Signal("IxABBStart");
-!        VAR signal IxABBStop := DI.Signal("IxABBStop");
-!        VAR signal IxABBReset := DI.Signal("IxABBReset");
-!        VAR signal IxABBMode := DI.Signal("IxABBMode");
-!        VAR signal IxABBPickSelector := DI.Signal("IxABBPickSelector");
-    
-!        TPWrite "PLC Signals:";
-        
-!        IF IxABBStart THEN
-!            TPWrite "Start signal is ON";
-!        ELSE
-!            TPWrite "Start signal is OFF";
-!        ENDIF
-    
-!        IF IxABBStop THEN
-!            TPWrite "Stop signal is ON";
-!        ELSE
-!            TPWrite "Stop signal is OFF";
-!        ENDIF
-    
-!        IF IxABBReset THEN
-!            TPWrite "Reset signal is ON";
-!        ELSE
-!            TPWrite "Reset signal is OFF";
-!        ENDIF
-    
-!        IF IxABBMode THEN
-!            TPWrite "Mode: Automatic";
-!        ELSE
-!            TPWrite "Mode: Manual";
-!        ENDIF
-    
-!        IF IxABBPickSelector THEN
-!            TPWrite "Pick from Conveyor";
-!        ELSE
-!            TPWrite "Pick from AGV";
-!        ENDIF
-
-!    ENDPROC
-
-    
     
     
 PROC SetupPlcCom()
@@ -93,20 +52,29 @@ ENDPROC
 
 PROC GetPart()
 
+    TPWrite "Confirm to continue with GetPart";
+    Stop;
+    ! Now the program waits until the operator presses "Continue" on the teach pendant
+    
     ! Wait for starting signal
-    WaitDI IxABBStart, 1;
+    !WaitDI IxABBStart, 1;
     
-    ! Make sure Gripper is open
+    ! Open Gripper if not already open
+    !SET doValve1;
+    !WaitTime 1;
     
+    !Test Table positions
+    
+
     
     ! Check where to get Part from
-    IF IxABBPickSelector = 1 THEN
-        ! Move J Approach AGV, maybe make  multiple ones depending on trajectory
-        ! Move L Exact Pickup Position
-        ! Close Gripper
-    ELSE
-        !
-    ENDIF
+!    IF IxABBPickSelector = 1 THEN
+!        ! Move J Approach AGV, maybe make  multiple ones depending on trajectory
+!        ! Move L Exact Pickup Position
+!        ! Close Gripper
+!    ELSE
+!        !
+!    ENDIF
     
     ! Move to pickup position
     !MOVE J APPROACH 
@@ -126,7 +94,7 @@ PROC VisionEvaluation()
 ENDPROC
 
 
-!PROC RobotClient()
+PROC RobotClient()
 !    VAR string receivedStringCoords;   !//Received string
 !    VAR string sendString;       !//Reply string
 !    VAR pos pickpos;
@@ -208,11 +176,11 @@ ENDPROC
 !        TCPSendMessage("Done");
 !    ENDWHILE
 
-!ENDPROC
+ENDPROC
 
 
 
-!PROC SplitString(string source, string delimiter, INOUT string resultArray{*})
+PROC SplitString(string source, string delimiter, INOUT string resultArray{*})
 !    VAR string temp;
 !    VAR num numOfValues := 4;
 !    VAR string fullString;
@@ -234,11 +202,11 @@ ENDPROC
 
 !        i := i + 1;
 !    ENDWHILE
-!ENDPROC
+ENDPROC
 
 
 
-!PROC pickPlacePart(num x_coord,num y_coord,num orientation,num shape)
+PROC pickPlacePart(num x_coord,num y_coord,num orientation,num shape)
 !    VAR robtarget target;
 !    CONST num xOffset := 2;
 !    CONST num yOffset := 20;
@@ -261,11 +229,11 @@ ENDPROC
 !    SetDO dovalve1, 0;  !Deactivate vaccum
 !    MoveJ Offs(target,0,0,-50),v1000,z20,toolVacuum\WObj:=wobj1;
 
-!ENDPROC
+ENDPROC
 
 
 
-!FUNC robtarget getPlacePos(num shape, num orientation)
+FUNC robtarget getPlacePos(num shape, num orientation)
 
 !    VAR robtarget target := pApproachPlace;
 !    VAR num offset_angle := 0;
@@ -293,11 +261,11 @@ ENDPROC
 !    target := RotZ(orientation + offset_angle, target);
 
 !    RETURN target;
-!ENDFUNC
+ENDFUNC
 
 
 
-!FUNC robtarget RotZ(num angle_deg, robtarget target)
+FUNC robtarget RotZ(num angle_deg, robtarget target)
 !     VAR orient rotZOrient;
 !     VAR num anglex;
 !     VAR num angley;
@@ -314,7 +282,14 @@ ENDPROC
 !     ! Go back to quaternions
 !     target.rot := OrientZYX(anglez, angley, anglex);
 !     RETURN target;
-!ENDFUNC
+ENDFUNC
+
+PROC ResetSystem()
+    MoveJ pHome, v100, z50, tool0\WObj:=wobj0;
+    !Reset doValve1;
+
+
+ENDPROC
 
 
 
