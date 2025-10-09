@@ -39,9 +39,10 @@ def setup_logging():
 
 
 def main():
+    # Setup Logging
     setup_logging()
 
-    # Testing TCP Server with ABB Robot
+    # Setup Robot Communication
     Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
     Robot.connect()
     Robot.communicate("Vision System Ready")
