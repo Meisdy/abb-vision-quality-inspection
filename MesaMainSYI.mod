@@ -1,9 +1,12 @@
 MODULE MesaMainSYI
-    CONST wobjdata wobjTable:=[FALSE,TRUE,"",[[1324.77,-472.104,426.917],[0.999992,0.000929973,-0.000683746,0.00391044]],[[0,0,0],[1,0,0,0]]];
-    CONST tooldata tGripper:=[TRUE,[[0.51636,-0.710444,275.457],[1,0,0,0]],[26,[80,0,180],[1,0,0,0],0,0,0]];
-    CONST tooldata tPen:=[TRUE,[[-180.096,-2.75697,367.367],[1,0,0,0]],[22.7,[80,0,180],[1,0,0,0],0,0,0]];
-    CONST robtarget pHomeTable:=[[1446.85,-17.16,775.21],[0.00187601,-0.0534411,-0.998569,-0.00117683],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget pHome:=[[1250.10,-20.07,1542.03],[0.0114343,0.00963583,0.999878,-0.00453267],[-1,-1,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS wobjdata wobjTable:=[FALSE,TRUE,"",[[1324.77,-472.104,426.917],[0.999992,0.000929973,-0.000683746,0.00391044]],[[0,0,0],[1,0,0,0]]];
+    PERS tooldata tGripper:=[TRUE,[[0.51636,-0.710444,275.457],[1,0,0,0]],[26,[80,0,180],[1,0,0,0],0,0,0]];
+    PERS tooldata tPen:=[TRUE,[[-180.096,-2.75697,367.367],[1,0,0,0]],[22.7,[80,0,180],[1,0,0,0],0,0,0]];
+    PERS robtarget pHomeTable:=[[87.36,384.09,290.00],[0.0022726,-0.0553747,-0.998463,0.000323689],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS robtarget pHome:=[[1246.51,-18.26,1541.99],[0.00169958,-0.0540723,-0.998534,-0.00180012],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS robtarget pApproachCamera:=[[371.01,634.71,95.07],[0.00046576,0.0554334,0.998462,-4.78765E-05],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS robtarget pCamera:=[[440.00,640.00,24.20],[0.00360056,-0.055442,-0.998455,0.000647754],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS robtarget pAway:=[[250.45,640.03,70.00],[0.00360485,-0.0554333,-0.998456,0.00064939],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 
 
     PROC main()
@@ -84,8 +87,29 @@ PROC GetPart()
     ! Get Start message and pickup location from PLC
     ! Move to right pickup location
     ! Pickup Part
-    ! Move to Camera System
-    ! (Place Part)
+    
+    ! Place part below Camera and place it
+    MoveJ pHomeTable, v2500, z100, tGripper\WObj:=wobjTable;            ! Go to table middle
+    MoveJ Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
+    MoveL pCamera, v50, fine, tGripper\WObj:=wobjTable;                 ! Go to camera dropoff pos
+    OpenGripper;
+    MoveL Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
+    
+    ! Move robot out of camera frame
+    MoveL pAway, v2500, z50, tGripper\WObj:=wobjTable;              ! Go to trajectory approach pos for Camera
+    TPWrite "Confirm to continue with GetPart";
+    Stop;
+    
+    ! Pickup Part again and go to Home Table
+    MoveL Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
+    MoveL pCamera, v50, fine, tGripper\WObj:=wobjTable;                 ! Go to camera dropoff pos
+    CloseGripper;
+    MoveL Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
+    MoveJ pHomeTable, v2500, z100, tGripper\WObj:=wobjTable;            ! Go to table middle
+
+    
+
+    ! Place part
 
 ENDPROC
 
@@ -285,10 +309,21 @@ FUNC robtarget RotZ(num angle_deg, robtarget target)
 ENDFUNC
 
 PROC ResetSystem()
-    MoveJ pHome, v100, z50, tool0\WObj:=wobj0;
+    MoveJ pHome, v2500, z50, tool0\WObj:=wobj0;
+    WaitTime\InPos ,.1;
     !Reset doValve1;
 
 
+ENDPROC
+
+PROC OpenGripper()
+    SET doValve1;
+    WaitTime .3;
+ENDPROC
+
+PROC CloseGripper()
+    RESET doValve1;
+    WaitTime .3;
 ENDPROC
 
 
