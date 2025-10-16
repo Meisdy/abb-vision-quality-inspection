@@ -9,7 +9,14 @@ MODULE MesaMainSYI
     PERS robtarget pAway:=[[250.45,640.03,70.00],[0.00360485,-0.0554333,-0.998456,0.00064939],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 
 
+    CONST bool DEV_MODE := TRUE;
+    TASK PERS wobjdata wobjConveyor:=[FALSE,TRUE,"",[[225.01,1139.56,326.568],[0.999943,-0.010696,-0.000444899,0.000237186]],[[0,0,0],[1,0,0,0]]];
+    CONST robtarget pApproachConveyor:=[[329.56,101.68,179.90],[0.00508886,-0.676704,0.736203,0.00713396],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pConveyor:=[[329.53,107.28,-20.61],[0.0050898,-0.676709,0.736198,0.00713275],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pTrajectory:=[[-526.59,1165.42,427.33],[0.0027802,0.356676,-0.934223,0.000896078],[0,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    
     PROC main()
+        
         !SetupPlcCom;           !Setup PLC com. (if necessary)
         !SetupVisionSystem;
         GetPart;               !Pickup Part and place to Camera System
@@ -54,39 +61,53 @@ PROC SetupVisionSystem()
 ENDPROC
 
 PROC GetPart()
+    VAR intnum partSource := 0;
 
-    TPWrite "Confirm to continue with GetPart";
-    Stop;
-    ! Now the program waits until the operator presses "Continue" on the teach pendant
+    ! Define where to get the part from and wait for Execution signal
+    IF DEV_MODE THEN
+        TPReadFK partSource, "Choose part source?", "AGV", "Conveyor",stEmpty, stEmpty, stEmpty;
+        TPWrite "Confirm to continue with GetPart Rountine";
+        Stop;
+    ELSE
+        partSource := IxABBPickSelector;
+        WaitDI IxABBStart, 1;
+    ENDIF
     
-    ! Wait for starting signal
-    !WaitDI IxABBStart, 1;
+!    ! Open Gripper if not already open
+!    OpenGripper;
     
-    ! Open Gripper if not already open
-    !SET doValve1;
-    !WaitTime 1;
+    ! Check where to get Part from and move to pickup position
+    IF partSource = 1 THEN
+        TPWrite "Not programed yet";
+        EXIT;
+        ! Move J Approach AGV, maybe make  multiple ones depending on trajectory
+        ! Move L Exact Pickup Position
+        ! Close Gripper
+    ELSEIF partSource = 2 THEN ! Move to CONVEYOR and pickup part
+        Movej pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;  ! Go to approach camera pos
+        MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go to approach camera pos
+        MoveL pConveyor, v50, fine, tGripper\WObj:=wobjConveyor;                 ! Go to camera dropoff pos
+        !CloseGripper;
+        MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go to approach camera pos
+        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;
+    ELSE 
+        TPWrite "Error; Faulty part source value";
+        EXIT;
+    ENDIF
     
-    !Test Table positions
-    
-
-    
-    ! Check where to get Part from
-!    IF IxABBPickSelector = 1 THEN
-!        ! Move J Approach AGV, maybe make  multiple ones depending on trajectory
-!        ! Move L Exact Pickup Position
-!        ! Close Gripper
-!    ELSE
-!        !
-!    ENDIF
-    
-    ! Move to pickup position
-    !MOVE J APPROACH 
+!    ! Move to pickup position
+!    !MOVE J APPROACH 
         
     
     
     ! Get Start message and pickup location from PLC
     ! Move to right pickup location
     ! Pickup Part
+    
+    
+    
+    TPWrite "Confirm to continue with GetPart Rountine AND place under CAM";
+    Stop;
     
     ! Place part below Camera and place it
     MoveJ pHomeTable, v2500, z100, tGripper\WObj:=wobjTable;            ! Go to table middle
