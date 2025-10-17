@@ -38,6 +38,12 @@ def setup_logging():
     logging.getLogger().setLevel(logging.INFO)
 
 
+def evaluate_part():
+    # Placeholder for part evaluation logic
+    logging.info("Evaluating part...")
+    return False
+
+
 def main():
     # Setup Logging
     setup_logging()
@@ -46,6 +52,18 @@ def main():
     Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
     Robot.connect()
     Robot.communicate("Vision System Ready")
+
+    # Wait for evaluate command
+    if Robot.receive_message() == "evaluate":
+        logging.info("Received evaluate command from robot.")
+        part_status = evaluate_part()
+        if part_status:
+            Robot.send_message("complete")
+        else:
+            Robot.send_message("part bad")
+
+  #  wait = input("Press Enter to disconnect and exit...")
+  #  Robot.disconnect()
 
 
 # Press the green button in the gutter to run the script.
