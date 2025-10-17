@@ -3,29 +3,37 @@ MODULE MesaMainSYI
     PERS tooldata tGripper:=[TRUE,[[0.51636,-0.710444,275.457],[1,0,0,0]],[26,[80,0,180],[1,0,0,0],0,0,0]];
     PERS tooldata tPen:=[TRUE,[[-180.096,-2.75697,367.367],[1,0,0,0]],[22.7,[80,0,180],[1,0,0,0],0,0,0]];
     PERS robtarget pHomeTable:=[[87.36,384.09,290.00],[0.0022726,-0.0553747,-0.998463,0.000323689],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    PERS robtarget pHome:=[[1246.51,-18.26,1541.99],[0.00169958,-0.0540723,-0.998534,-0.00180012],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS robtarget pHome:=[[1246.17,-13.35,1540.00],[0.00170027,-0.0511174,-0.99869,-0.00183437],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pApproachCamera:=[[371.01,634.71,95.07],[0.00046576,0.0554334,0.998462,-4.78765E-05],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pCamera:=[[440.00,640.00,24.20],[0.00360056,-0.055442,-0.998455,0.000647754],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pAway:=[[250.45,640.03,70.00],[0.00360485,-0.0554333,-0.998456,0.00064939],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS wobjdata wobjConveyor:=[FALSE,TRUE,"",[[225.01,1139.56,326.568],[0.999943,-0.010696,-0.000444899,0.000237186]],[[0,0,0],[1,0,0,0]]];
     CONST robtarget pApproachConveyor:=[[329.56,101.68,179.90],[0.00508886,-0.676704,0.736203,0.00713396],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget pConveyor:=[[329.53,107.28,-20.61],[0.0050898,-0.676709,0.736198,0.00713275],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget pTrajectory:=[[-526.59,1165.42,427.33],[0.0027802,0.356676,-0.934223,0.000896078],[0,0,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pConveyor:=[[329.53,107.82,-20.60],[0.0050216,-0.671333,0.741104,0.00719529],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget pTrajectory:=[[787.71,775.77,904.87],[0.00148502,0.494751,-0.869034,0.000424912],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     ! Add AGV Positions here later
 
 
-    CONST bool DEV_MODE := TRUE;
-    CONST speeddata FAST := v2500; ! Test this later
-    PERS intnum visionResult := 0;
+    CONST bool USE_PLC := FALSE;
+    CONST bool USE_VISION := True;
+    PERS intnum visionResult := 2;
 
     
     PROC main()
+        TPErase;
+        
+        IF NOT USE_PLC THEN
+            TPWrite "Ignore PLC ON";
+        ENDIF
+        IF NOT USE_VISION THEN
+            TPWrite "Ignore Vision ON";
+        ENDIF
         
         !SetupPlcCom;           !Setup PLC com. (if necessary)
-        !SetupVisionSystem;
+        SetupVisionSystem;
         GetPart;               !Pickup Part and place to Camera System
         VisionEvaluation;      !Evaluate Part using Vision Computer
-        ProcessPart            !Move Part away
+        ProcessPart;            !Move Part away
         !Give info to PLC
         ResetSystem;
 
@@ -34,42 +42,40 @@ MODULE MesaMainSYI
     
 PROC SetupPlcCom()
     
+    IF USE_PLC THEN
+        SetDO QiABBStatus, 0;
+        SetDO QiABBVerificationStatus, 0;
+    ENDIF
+    
     ! Test IOs
-    SetDO QiABBStatus, 0;
-    SetDO QiABBVerificationStatus, 0;
-    
-    
-    
-!    Declare digital input signals for PLC outputs mapped via Profinet
-!    VAR signal IxStart;
-!    VAR signal IxStop;    
-!    IxStart := DI.Signal("IxStart");
-!    IxStop := DI.Signal("IxStop");
+
 ENDPROC
 
 PROC SetupVisionSystem()
     VAR string receivedMessage;
 
-    !Create and Connect TCP Client to Server
-    ClientCreateAndConnect;
+    IF USE_VISION THEN
 
-    !Wait for Server message
-    receivedMessage:=TCPReceiveMessage();
-    TPWrite("Server message: "+receivedMessage);
-    waitTime(.25);
-
-    !Respond to Server
-    TCPSendMessage("robot ready");
+        !Create and Connect TCP Client to Server
+        ClientCreateAndConnect;
+    
+        !Wait for Server message
+        receivedMessage:=TCPReceiveMessage();
+        TPWrite("Server message: "+receivedMessage);
+        waitTime(.25);
+    
+        !Respond to Server
+        TCPSendMessage("robot ready");
+        
+    ENDIF
 ENDPROC
 
 PROC GetPart()
     VAR intnum partSource := 0;
 
     ! Define where to get the part from and wait for Execution signal
-    IF DEV_MODE THEN
+    IF NOT USE_PLC THEN
         TPReadFK partSource, "Choose part source?", "AGV", "Conveyor",stEmpty, stEmpty, stEmpty;
-        TPWrite "Confirm to continue with GetPart Routine in DEV Mode";
-        Stop;
     ELSE
         partSource := IxABBPickSelector;
         WaitDI IxABBStart, 1;
@@ -91,13 +97,14 @@ PROC GetPart()
 !        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;     ! Move to trajectory approach pos back to table
 
     ELSEIF partSource = 2 THEN ! Move to CONVEYOR and pickup part
+        MoveJ pTrajectory, v2500, z100, tGripper;                       ! Move to trajectory approach pos back to table
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos
         MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos using offset
         MoveL pConveyor, v50, fine, tGripper\WObj:=wobjConveyor;                 ! Go to Conveyor pickup pos
         CloseGripper;
         MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go back to approach Conveyor pos using offset
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos
-        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;                       ! Move to trajectory approach pos back to table
+        MoveJ pTrajectory, v2500, z100, tGripper;                       ! Move to trajectory approach pos back to table
     ELSE 
         TPWrite "Error; Faulty part source value";
         EXIT;
@@ -112,30 +119,39 @@ PROC GetPart()
     
     ! Move robot out of camera frame
     MoveL pAway, v2500, z50, tGripper\WObj:=wobjTable;              ! Go to trajectory approach pos for Camera
-    TPWrite "GetPart finished, confirm to continue";
-    Stop;
         
 ENDPROC
 
 ! Send request to Vision PC to evaluate the part
 PROC VisionEvaluation()
-    ! Send Request to Vision PC. Maybe change functions so Client is Initiator here... Or use quickfix in which Setup VIsion gets a new message and will just respond here.
-
-    IF DEV_MODE THEN
-        TPReadFK visionResult, "Choose vision result?", "Complete", "Incomplete", stEmpty, stEmpty, stEmpty;
-        TPWrite "Confirm to continue with VisionEvaluation Routine in DEV Mode";
-        Stop;
+    VAR string answer;
+    
+    IF NOT USE_VISION THEN
+        TPReadFK visionResult, "Choose vision result?", "Complete (AGV)", "Incomplete (Conv)", stEmpty, stEmpty, stEmpty;
     ELSE
-        TPWrite "Not yet programed for non DEV_MODE";
-        EXIT;
-!        TCPSendMessage("evaluate part");
-!        visionResult := StrToNum(TCPReceiveMessage());
-!        TPWrite "Vision result received: "+NumToStr(visionResult,0);
+        
+        TcpSendMessage("evaluate");
+        answer := TCPReceiveMessage();      
+        
+        IF answer = "complete" THEN
+            visionResult := 1;
+            TPWrite "Vision Result: Complete";
 
-!        ! Send info to PLC according to vision result
-!        SetDO QiABBVerificationStatus, visionResult; ! 0 = complete, 1 = incomplete
+        ELSE
+            VisionResult := 2;
+            TPWrite "Vision Result: Incomplete";
+
+        ENDIF
+        
+        ! Close Socket connection ZZZ Change this to later moment maybe?
+        !ClientCloseAndDisconnect;
+        
+        ! Send info to PLC according to vision result
+        IF USE_PLC THEN
+            SetDO QiABBVerificationStatus, visionResult-1; ! 0 = complete, 1 = incomplete  
+        ENDIF
+        
     ENDIF
-
 
 ENDPROC
 
@@ -150,7 +166,9 @@ PROC ProcessPart()
     MoveJ pHomeTable, v2500, z100, tGripper\WObj:=wobjTable;            ! Go to table middle
 
     ! Check vision result and process part accordingly
-    IF visionResult = 0 THEN ! Part is complete, placing in onto AGV 
+    IF visionResult = 1 THEN ! Part is complete, placing in onto AGV 
+        TPWrite "Not yet coded";
+        EXIT;   
 !        MoveJ pApproachAGV, v2500, z100, tGripper\WObj:=wobjAGV;  ! Go to approach AGV pos
 !        MoveL Offs(pAGV, 0, 0, 50), v200, z15, tGripper\WObj:=wobjAGV;  ! Go to approach AGV pos using offset
 !        MoveL pAGV, v50, fine, tGripper\WObj:=wobjAGV;                 ! Go to AGV pickup pos
@@ -159,19 +177,37 @@ PROC ProcessPart()
 !        MoveJ pApproachAGV, v2500, z100, tGripper\WObj:=wobjAGV;  ! Go to approach AGV pos
 !        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;     ! Move to trajectory approach pos back to table
 
-    ELSEIF visionResult = 1 THEN ! Part is incomplete, placing back onto conveyor
-        MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos
-        MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos using offset !!! Maybe add some x offset here to not drop it exactly where it was picked up
-        MoveL pConveyor, v50, fine, tGripper\WObj:=wobjConveyor;                 ! Go to Conveyor pickup pos
+    ELSEIF visionResult = 2 THEN ! Part is incomplete, placing back onto conveyor
+        MoveJ pTrajectory, v2500, z100, tGripper;                                   ! Move to trajectory approach pos
+        MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;          ! Go to approach Conveyor pos
+        MoveL Offs(pConveyor, 50, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go to approach Conveyor pos using offset !!! Maybe add some x offset here to not drop it exactly where it was picked up
+        MoveL Offs(pConveyor, 50, 0, 2), v50, fine, tGripper\WObj:=wobjConveyor;                    ! Go to Conveyor pickup pos
         OpenGripper;
-        MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go back to approach Conveyor pos using offset
-        MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos
-        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;                       ! Move to trajectory approach pos back to table
+        MoveL Offs(pConveyor, 50, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go back to approach Conveyor pos using offset
+        MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;          ! Go to approach Conveyor pos
+        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;                       ! Move to trajectory approach pos
     ELSE 
         TPWrite "Error; Faulty vision result value";
         EXIT;   
     ENDIF
 
+ENDPROC
+
+PROC ResetSystem()
+    MoveJ pHome, v2500, z50, tool0\WObj:=wobj0;
+    WaitTime\InPos ,.1;
+    ClientCloseAndDisconnect;
+    Reset doValve1;
+ENDPROC
+
+PROC OpenGripper()
+    SET doValve1;
+    WaitTime .3;
+ENDPROC
+
+PROC CloseGripper()
+    RESET doValve1;
+    WaitTime .3;
 ENDPROC
 
 PROC RobotClient()
@@ -363,24 +399,6 @@ FUNC robtarget RotZ(num angle_deg, robtarget target)
 !     target.rot := OrientZYX(anglez, angley, anglex);
 !     RETURN target;
 ENDFUNC
-
-PROC ResetSystem()
-    MoveJ pHome, v2500, z50, tool0\WObj:=wobj0;
-    WaitTime\InPos ,.1;
-    !Reset doValve1;
-
-
-ENDPROC
-
-PROC OpenGripper()
-    SET doValve1;
-    WaitTime .3;
-ENDPROC
-
-PROC CloseGripper()
-    RESET doValve1;
-    WaitTime .3;
-ENDPROC
 
 
 
