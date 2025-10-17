@@ -84,6 +84,7 @@ class RobotComm:
         """
         try:
             if self.client_socket:
+                data = None # Reset data before receiving
                 data = self.client_socket.recv(4096)
                 if len(data) == 0:
                     # Client disconnected
