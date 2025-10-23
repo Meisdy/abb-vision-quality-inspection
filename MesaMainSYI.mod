@@ -12,49 +12,45 @@ MODULE MesaMainSYI
     CONST robtarget pConveyor:=[[329.53,107.82,-20.60],[0.0050216,-0.671333,0.741104,0.00719529],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pTrajectory:=[[787.71,775.77,904.87],[0.00148502,0.494751,-0.869034,0.000424912],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     ! Add AGV Positions here later
+ 
 
-
-    CONST bool USE_PLC := FALSE;
-    CONST bool USE_VISION := True;
+    CONST bool USE_PLC := TRUE;
+    CONST bool USE_VISION := FALSE;
     PERS intnum visionResult := 2;
 
     
     PROC main()
         TPErase;
         
-        IF NOT USE_PLC THEN
-            TPWrite "Ignore PLC ON";
-        ENDIF
-        IF NOT USE_VISION THEN
-            TPWrite "Ignore Vision ON";
-        ENDIF
-        
-        !SetupPlcCom;           !Setup PLC com. (if necessary)
-        SetupVisionSystem;
+        SetupPlcCom;           !Setup PLC com. (if necessary)
+        SetupVisionSystem;     !Setup Vision system
         GetPart;               !Pickup Part and place to Camera System
         VisionEvaluation;      !Evaluate Part using Vision Computer
-        ProcessPart;            !Move Part away
-        !Give info to PLC
-        ResetSystem;
+        ProcessPart;           !Move Part away
+        ResetSystem;           !Reset whole system, home robot
 
     ENDPROC
     
     
 PROC SetupPlcCom()
-    
+    ! Update status
+    SetGO QiABBStatus, 1;              ! Status to Init
+    SetDO QiABBVerificationStatus, 1;  ! Reset part status to not good
+            
+    ! Log output
     IF USE_PLC THEN
-        SetDO QiABBStatus, 0;
-        SetDO QiABBVerificationStatus, 0;
+        TPWrite "PLC Communication ON";
+    ELSE
+        TPWrite "PLC Communication OFF";
     ENDIF
     
-    ! Test IOs
-
 ENDPROC
 
 PROC SetupVisionSystem()
     VAR string receivedMessage;
-
+    
     IF USE_VISION THEN
+        TPWrite "Vision System ON";
 
         !Create and Connect TCP Client to Server
         ClientCreateAndConnect;
@@ -67,11 +63,16 @@ PROC SetupVisionSystem()
         !Respond to Server
         TCPSendMessage("robot ready");
         
+    ELSE
+        TPWrite "Vision System OFF";
     ENDIF
 ENDPROC
 
 PROC GetPart()
     VAR intnum partSource := 0;
+    
+    ! Update status
+    !SetGO QiABBStatus, 2;   ! Status to Get Part
 
     ! Define where to get the part from and wait for Execution signal
     IF NOT USE_PLC THEN
@@ -96,7 +97,7 @@ PROC GetPart()
 !        MoveJ pApproachAGV, v2500, z100, tGripper\WObj:=wobjAGV;  ! Go to approach AGV pos
 !        MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;     ! Move to trajectory approach pos back to table
 
-    ELSEIF partSource = 2 THEN ! Move to CONVEYOR and pickup part
+    ELSEIF partSource = 0 THEN ! Move to CONVEYOR and pickup part
         MoveJ pTrajectory, v2500, z100, tGripper;                       ! Move to trajectory approach pos back to table
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos
         MoveL Offs(pConveyor, 0, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos using offset
@@ -126,8 +127,11 @@ ENDPROC
 PROC VisionEvaluation()
     VAR string answer;
     
+    ! Update status
+    !SetGO QiABBStatus, 3;   ! Status to part eval.
+    
     IF NOT USE_VISION THEN
-        TPReadFK visionResult, "Choose vision result?", "Complete (AGV)", "Incomplete (Conv)", stEmpty, stEmpty, stEmpty;
+        TPReadFK visionResult, "Choose vision result?", "Complete (AGV)", "Incomplete (Conveyor)", stEmpty, stEmpty, stEmpty;
     ELSE
         
         TcpSendMessage("evaluate");
@@ -157,6 +161,9 @@ ENDPROC
 
 ! Process the part based on the vision evaluation results
 PROC ProcessPart()
+    
+    ! Update status
+    !SetGO QiABBStatus, 4;   ! Status to process part
        
     ! Pickup Part again and go to Home Table
     MoveL Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
@@ -180,10 +187,10 @@ PROC ProcessPart()
     ELSEIF visionResult = 2 THEN ! Part is incomplete, placing back onto conveyor
         MoveJ pTrajectory, v2500, z100, tGripper;                                   ! Move to trajectory approach pos
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;          ! Go to approach Conveyor pos
-        MoveL Offs(pConveyor, 50, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go to approach Conveyor pos using offset !!! Maybe add some x offset here to not drop it exactly where it was picked up
-        MoveL Offs(pConveyor, 50, 0, 2), v50, fine, tGripper\WObj:=wobjConveyor;                    ! Go to Conveyor pickup pos
+        MoveL Offs(pConveyor, 50, -.4, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go to approach Conveyor pos using offset !!! Maybe add some x offset here to not drop it exactly where it was picked up
+        MoveL Offs(pConveyor, 50, -.4, 2), v50, fine, tGripper\WObj:=wobjConveyor;                    ! Go to Conveyor pickup pos
         OpenGripper;
-        MoveL Offs(pConveyor, 50, 0, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go back to approach Conveyor pos using offset
+        MoveL Offs(pConveyor, 50, -.4, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go back to approach Conveyor pos using offset
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;          ! Go to approach Conveyor pos
         MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;                       ! Move to trajectory approach pos
     ELSE 
@@ -194,10 +201,17 @@ PROC ProcessPart()
 ENDPROC
 
 PROC ResetSystem()
+    ! Update status
+    !SetGO QiABBStatus, 5;   ! Status to Reset system
+    
     MoveJ pHome, v2500, z50, tool0\WObj:=wobj0;
     WaitTime\InPos ,.1;
     ClientCloseAndDisconnect;
     Reset doValve1;
+    
+    ! Update status
+    SetGO QiABBStatus, 0;   ! Status to stopped system   
+    
 ENDPROC
 
 PROC OpenGripper()
