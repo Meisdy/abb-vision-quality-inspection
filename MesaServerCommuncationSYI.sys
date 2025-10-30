@@ -2,7 +2,7 @@ MODULE MesaServerCommuncationSYI(SYSMODULE)
 VAR socketdev clientSocket;
 VAR socketdev serverSocket;
 VAR num retry_no    := 0;
-CONST string IP_ABB := "192.168.125.6";
+CONST string IP_ABB := "192.168.125.5";
 
 
 
