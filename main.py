@@ -6,6 +6,7 @@ import math
 import sys
 import os
 import abb_robot_comm
+import time
 from pypylon import genicam
 from pypylon import pylon
 
@@ -14,7 +15,7 @@ os.environ["PYLON_CAMEMU"] = "3"
 # Constants
 USE_CAMERA = False
 USE_ROBOT = True
-IP_ABB_ROBOT = '192.168.125.6'
+IP_ABB_ROBOT = '192.168.125.5'
 
 # Camera Const
 maxCamerasToUse = 1
@@ -48,22 +49,25 @@ def main():
     # Setup Logging
     setup_logging()
 
-    # Setup Robot Communication
-    Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
-    Robot.connect()
-    Robot.communicate("Vision System Ready")
+    while True:
+        # Setup Robot Communication
+        Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
+        Robot.connect()
+        Robot.communicate("Vision System Ready")
 
-    # Wait for evaluate command
-    if Robot.receive_message() == "evaluate":
-        logging.info("Received evaluate command from robot.")
-        part_status = evaluate_part()
-        if part_status:
-            Robot.send_message("complete")
-        else:
-            Robot.send_message("part bad")
+        # Wait for evaluate command
+        if Robot.receive_message() == "evaluate":
+            logging.info("Received evaluate command from robot.")
+            part_status = evaluate_part()
+            if part_status:
+                Robot.send_message("complete")
+            else:
+                Robot.send_message("part bad")
 
-  #  wait = input("Press Enter to disconnect and exit...")
-  #  Robot.disconnect()
+        #  wait = input("Press Enter to disconnect and exit...")
+        #  Robot.disconnect()
+
+        time.sleep(2)
 
 
 # Press the green button in the gutter to run the script.
