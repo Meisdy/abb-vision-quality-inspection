@@ -1,16 +1,15 @@
-import os
 from pypylon import genicam
 from pypylon import pylon
+import os
 import sys
 import cv2
-
-os.environ["PYLON_CAMEMU"] = "3"
 
 '''
 Program to grab images upon a keystroke from both cameras and save them
 '''
-maxCamerasToUse = 1
 
+os.environ["PYLON_CAMEMU"] = "3"
+maxCamerasToUse = 1
 exitCode = 0
 
 
