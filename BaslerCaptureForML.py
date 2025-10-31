@@ -5,6 +5,7 @@ import sys
 import cv2
 
 os.environ["PYLON_CAMEMU"] = "3"
+
 maxCamerasToUse = 1
 
 
@@ -32,24 +33,21 @@ def create_cameras(exposure_time, frame_rate):
     return cameras
 
 
-def grab_training_images(cameras, converter, config_name, num_iterations, save_dir):
+def capture_training_photos(cameras, converter, config_name, iteration, save_dir):
     """
-    Captures training images with guided prompts
-    3 photos per iteration: standard, standard, varied lighting
+    Captures 3 photos (std, std, varied) with user pressing SPACE
+    Returns True when all 3 photos captured, False if cancelled
     """
     os.makedirs(save_dir, exist_ok=True)
 
     cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 
-    iteration = 0
+    photos_captured = 0
 
-    print(f"\n=== Starting capture session for '{config_name}' ===")
-    print(f"Target: {num_iterations} iterations × 3 photos = {num_iterations * 3} images")
-    print("\nControls:")
-    print("  SPACE = Capture photo")
-    print("  ESC = Exit\n")
+    print(f"=== Iteration {iteration + 1} - Capture {photos_captured + 1}/3 ===")
+    print("Press SPACE to capture, ESC to cancel")
 
-    while cameras.IsGrabbing() and iteration < num_iterations:
+    while cameras.IsGrabbing() and photos_captured < 3:
         grabResult = cameras[0].RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
         if grabResult.GrabSucceeded():
@@ -57,7 +55,7 @@ def grab_training_images(cameras, converter, config_name, num_iterations, save_d
 
             # Display with instructions
             display_img = image.copy()
-            text = f"Iteration {iteration + 1}/{num_iterations}"
+            text = f"Photo {photos_captured + 1}/3"
             cv2.putText(display_img, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             cv2.namedWindow('Camera Feed', cv2.WINDOW_NORMAL)
@@ -65,67 +63,88 @@ def grab_training_images(cameras, converter, config_name, num_iterations, save_d
 
             key = cv2.waitKey(1) & 0xFF
 
-            if key == 27:  # ESC to exit
-                print("\nSession cancelled.")
+            if key == 27:  # ESC
+                print("Cancelled by user")
                 grabResult.Release()
-                break
+                cameras.StopGrabbing()
+                cv2.destroyAllWindows()
+                return False
 
-            elif key == 32:  # SPACE to capture
-                # Determine which photo in the sequence (0, 1, or 2)
-                photo_in_iteration = 0
-                if os.path.exists(f"{save_dir}/{config_name}_{iteration:02d}_std1.jpg"):
-                    photo_in_iteration = 1
-                if os.path.exists(f"{save_dir}/{config_name}_{iteration:02d}_std2.jpg"):
-                    photo_in_iteration = 2
-
-                # Save with appropriate name
-                if photo_in_iteration == 0:
+            elif key == 32:  # SPACE
+                # Save photo based on sequence
+                if photos_captured == 0:
                     filename = f"{save_dir}/{config_name}_{iteration:02d}_std1.jpg"
-                    print(f"  ✓ Photo 1/3 saved (standard lighting)")
-                elif photo_in_iteration == 1:
+                    print("✓ Photo 1/3 saved (standard)")
+                elif photos_captured == 1:
                     filename = f"{save_dir}/{config_name}_{iteration:02d}_std2.jpg"
-                    print(f"  ✓ Photo 2/3 saved (standard lighting)")
-                elif photo_in_iteration == 2:
+                    print("✓ Photo 2/3 saved (standard)")
+                elif photos_captured == 2:
                     filename = f"{save_dir}/{config_name}_{iteration:02d}_varied.jpg"
-                    print(f"  ✓ Photo 3/3 saved (varied lighting)")
-                    iteration += 1
-                    if iteration < num_iterations:
-                        print(f"\n--- Iteration {iteration + 1} ready ---")
-                        print("  Place new assembly or adjust components")
+                    print("✓ Photo 3/3 saved (varied)")
 
                 cv2.imwrite(filename, image)
+                photos_captured += 1
+
+                if photos_captured < 3:
+                    if photos_captured == 2:
+                        print(">>> Adjust lighting for photo 3, then press SPACE <<<")
 
         grabResult.Release()
 
     cameras.StopGrabbing()
     cv2.destroyAllWindows()
-
-    total_captured = len([f for f in os.listdir(save_dir) if f.endswith('.jpg')])
-    print(f"\n✓ Session complete! {total_captured} images saved to {save_dir}")
+    return True
 
 
 def main():
+    """Main function to run capture session"""
+
+    # Configuration
+    CONFIG_NAME = "correct_assembly"
+    NUM_ITERATIONS = 2
+    SAVE_DIR = "image_data/train"
+
+    print(f"Configuration: {CONFIG_NAME}")
+    print(f"Target iterations: {NUM_ITERATIONS}")
+    print(f"Save location: {SAVE_DIR}")
+    input("\nPress Enter to start capture session...")
+
     try:
-        # Configuration
-        CONFIG_NAME = "correct_assembly"  # Change this for different configs
-        NUM_ITERATIONS = 3  # Number of assemblies to photograph
-        SAVE_DIR = "image_data/train"  # Where to save images
-
-        print(f"Configuration: {CONFIG_NAME}")
-        print(f"Iterations: {NUM_ITERATIONS}")
-        print(f"Save location: {SAVE_DIR}")
-        input("\nPress Enter to start...")
-
+        # Initialize camera
         converter = configure_converter()
         cameras = create_cameras(exposure_time=30000.0, frame_rate=30.0)
-        grab_training_images(cameras, converter, CONFIG_NAME, NUM_ITERATIONS, SAVE_DIR)
+
+        # Capture loop
+        for iteration in range(NUM_ITERATIONS):
+            print(f"\n{'=' * 50}")
+            print(f"ITERATION {iteration + 1}/{NUM_ITERATIONS}")
+            print(f"{'=' * 50}")
+            input("Place assembly manually, then press Enter...")
+
+            success = capture_training_photos(
+                cameras,
+                converter,
+                CONFIG_NAME,
+                iteration,
+                SAVE_DIR
+            )
+
+            if not success:
+                print("Session cancelled by user")
+                break
+
+            input("\nRemove assembly, press Enter to continue...")
+
+        print(f"\n✓ Capture session complete!")
+        total_images = len([f for f in os.listdir(SAVE_DIR) if f.endswith('.jpg')])
+        print(f"Total images saved: {total_images}")
 
     except genicam.GenericException as e:
-        print("Camera exception:", e)
+        print(f"Camera error: {e}")
         sys.exit(1)
-    except OSError as e:
-        print("File system error:", e)
-        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nSession interrupted by user")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
