@@ -23,7 +23,7 @@ def load_images(folder):
             img = img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
 
             # 2. Then resize
-            img = cv2.resize(img, (384, 384))  # Change for details vs calc time.
+            img = cv2.resize(img, (512, 512))  # Change for details vs calc time.
 
             # 3. Rest of processing...
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -88,21 +88,28 @@ dataset = TensorDataset(images_tensor)
 # Create batches of 4 images, randomized order each epoch
 loader = DataLoader(dataset, batch_size=4, shuffle=True)
 
+# Number of complete passes through all images
 epochs = 50
+
+# Loop through epochs
 for epoch in range(epochs):
-    total_loss = 0
+    total_loss = 0  # Track loss for this epoch
+
+    # Loop through batches (12 batches of 4 images each)
     for batch in loader:
-        img = batch[0].to(device)
+        img = batch[0].to(device)  # Get 4 images, move to GPU/CPU
 
-        optimizer.zero_grad()
-        output = model(img)
-        loss = criterion(output, img)
-        loss.backward()
-        optimizer.step()
+        optimizer.zero_grad()  # Clear old gradients from previous batch
+        output = model(img)  # Pass images through model (forward)
+        loss = criterion(output, img)  # Calculate reconstruction error
+        loss.backward()  # Calculate gradients (how to fix weights)
+        optimizer.step()  # Update weights based on gradients
 
-        total_loss += loss.item()
+        total_loss += loss.item()  # Add this batch's loss to total
 
+    # Print average loss for this epoch
     print(f'Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(loader):.6f}')
 
-torch.save(model.state_dict(), 'autoencoder_model.pth')
+# Save trained model weights to file
+torch.save(model.state_dict(), 'models/autoencoder_model.pth')
 print("Model saved!")
