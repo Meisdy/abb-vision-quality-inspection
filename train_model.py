@@ -7,7 +7,7 @@ import os
 from torch.utils.data import DataLoader, TensorDataset
 
 
-# Load images
+# Functions and Classes
 def load_images(folder):
     images = []
     for file in sorted(os.listdir(folder)):
@@ -44,7 +44,7 @@ class Autoencoder(nn.Module):
             nn.Conv2d(64, 128, 3, padding=1),  # Layer 2
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(128, 256, 3, padding=1), # Layer 3
+            nn.Conv2d(128, 256, 3, padding=1),  # Layer 3
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
@@ -63,15 +63,29 @@ class Autoencoder(nn.Module):
         return decoded
 
 
-# Train
+# Training the Modell:
+# Device: GPU if available, else CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Create model and move to device
 model = Autoencoder().to(device)
+
+# Optimizer: Adam adjusts weights to minimize loss
 optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# Loss function: Measures reconstruction error (original vs output)
 criterion = nn.MSELoss()
 
-images = load_images('data/train/')
+# Load images from folder
+images = load_images('image_data/train/')
+
+# Convert numpy array → PyTorch tensor (required for PyTorch)
 images_tensor = torch.from_numpy(images).float()
+
+# Package tensor into dataset
 dataset = TensorDataset(images_tensor)
+
+# Create batches of 4 images, randomized order each epoch
 loader = DataLoader(dataset, batch_size=4, shuffle=True)
 
 epochs = 50
