@@ -5,22 +5,19 @@ MODULE MesaMainSYI
     PERS robtarget pHomeTable:=[[-92.84,605.12,289.97],[0.00228675,-0.0539337,-0.998541,0.00114616],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pHome:=[[1246.17,-13.35,1540.00],[0.00170027,-0.0511174,-0.99869,-0.00183437],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pApproachCamera:=[[371.01,634.71,95.07],[0.00046576,0.0554334,0.998462,-4.78765E-05],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    PERS robtarget pCamera:=[[440.00,640.00,24.20],[0.00360056,-0.055442,-0.998455,0.000647754],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS robtarget pCamera:=[[440.03,639.99,24.18],[0.00360889,-0.0431114,-0.999064,0.000601169],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pAway:=[[250.45,640.03,70.00],[0.00360485,-0.0554333,-0.998456,0.00064939],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS wobjdata wobjConveyor:=[FALSE,TRUE,"",[[225.01,1139.56,326.568],[0.999943,-0.010696,-0.000444899,0.000237186]],[[0,0,0],[1,0,0,0]]];
     CONST robtarget pApproachConveyor:=[[329.56,101.68,179.90],[0.00508886,-0.676704,0.736203,0.00713396],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pConveyor2:=[[363.26,108.40,-4.77],[0.00491427,-0.669708,0.742574,0.00712739],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pConveyor:=[[329.53,107.82,-20.60],[0.0050216,-0.671333,0.741104,0.00719529],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     CONST robtarget pTrajectory:=[[787.71,775.77,904.87],[0.00148502,0.494751,-0.869034,0.000424912],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    ! Add AGV Positions here later ZZZ
-    PERS robtarget pAGV:=[[440.00,640.00,24.20],[0.00360056,-0.055442,-0.998455,0.000647754],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-
-
+    PERS robtarget pAGV:=[[440.00,640.00,24.20],[0.00360056,-0.055442,-0.998455,0.000647754],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; !!! ZZZ AGV POS
+    
+    PERS intnum visionResult := 0;
     CONST bool USE_PLC := FALSE;
     CONST bool USE_VISION := TRUE;
-    PERS intnum visionResult := 1;
 
-    
     PROC main()
         TPErase;
         SetupPlcCom;           !Setup PLC com. (if necessary)
@@ -197,10 +194,10 @@ PROC ProcessPart()
     ELSEIF visionResult = 1 THEN ! Part is incomplete, placing back onto conveyor
         MoveJ pTrajectory, v2500, z100, tGripper;                                   ! Move to trajectory approach pos
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;          ! Go to approach Conveyor pos
-        MoveL Offs(pConveyor2, 0, -1, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go to approach Conveyor pos using offset !!! Maybe add some x offset here to not drop it exactly where it was picked up
-        MoveL Offs(pConveyor2, 0, -1, -5), v50, fine, tGripper\WObj:=wobjConveyor;                    ! Go to Conveyor pickup pos
+        MoveL Offs(pConveyor2, 0, -.5, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go to approach Conveyor pos using offset !!! Maybe add some x offset here to not drop it exactly where it was picked up
+        MoveL Offs(pConveyor2, 0, -.5, -5), v50, fine, tGripper\WObj:=wobjConveyor;                    ! Go to Conveyor pickup pos
         OpenGripper;
-        MoveL Offs(pConveyor2, 0, -1, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go back to approach Conveyor pos using offset
+        MoveL Offs(pConveyor2, 0, -.5, 50), v200, z15, tGripper\WObj:=wobjConveyor;    ! Go back to approach Conveyor pos using offset
         MoveJ pApproachConveyor, v2500, z100, tGripper\WObj:=wobjConveyor;          ! Go to approach Conveyor pos
         MoveJ pTrajectory, v2500, z100, tGripper\WObj:=wobj0;                       ! Move to trajectory approach pos
     ELSE 
