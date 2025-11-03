@@ -111,8 +111,6 @@ def evaluate_part():
 
     logging.info(f"Loss: {loss:.6f} → {status}")
 
-    input('Press Space to continue moving')
-
     return status == "OK"
 
 
