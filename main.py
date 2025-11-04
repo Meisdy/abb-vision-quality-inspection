@@ -1,8 +1,9 @@
 import logging
 import cv2
 import os
-import abb_robot_comm
 import time
+import abb_robot_comm
+import vision_pipeline
 from pypylon import genicam
 from pypylon import pylon
 from inference import evaluate_image, get_status
@@ -14,10 +15,6 @@ USE_CAMERA = True
 USE_ROBOT = True
 IP_ABB_ROBOT = '192.168.125.5'
 maxCamerasToUse = 1
-
-# Global camera variables
-cameras = None
-converter = None
 
 
 def setup_logging():
@@ -37,67 +34,14 @@ def setup_logging():
     logging.getLogger().setLevel(logging.INFO)
 
 
-def configure_converter():
-    """Setup image format converter for BGR"""
-    converter = pylon.ImageFormatConverter()
-    converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-    converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-    return converter
-
-
-def setup_cameras(exposure_time=30000.0, frame_rate=30.0):
-    """Initialize Basler camera"""
-    tlFactory = pylon.TlFactory.GetInstance()
-    devices = tlFactory.EnumerateDevices()
-
-    if len(devices) == 0:
-        raise pylon.RuntimeException("No camera present.")
-
-    cameras = pylon.InstantCameraArray(min(len(devices), maxCamerasToUse))
-
-    for i, cam in enumerate(cameras):
-        cam.Attach(tlFactory.CreateDevice(devices[i]))
-        logging.info(f"Using camera: {cam.GetDeviceInfo().GetModelName()}")
-
-        cam.Open()
-        cam.ExposureTime.SetValue(exposure_time)
-        cam.AcquisitionFrameRateEnable.SetValue(True)
-        cam.AcquisitionFrameRate.SetValue(frame_rate)
-        cam.Close()
-
-    return cameras
-
-
-def capture_image():
-    """Capture single image from camera (already grabbing)"""
-    global cameras, converter
-
-    try:
-        grabResult = cameras[0].RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-
-        if grabResult.GrabSucceeded():
-            image = converter.Convert(grabResult).GetArray()
-            grabResult.Release()
-            return image
-        else:
-            logging.error("Failed to grab image")
-            grabResult.Release()
-            return None
-
-    except genicam.GenericException as e:
-        logging.error(f"Camera error: {e}")
-        return None
-
-
-def evaluate_part():
+def evaluate_part(Camera):
     """Capture image and evaluate for defects"""
     logging.info("Evaluating part...")
-
-    # Capture image from camera
     time.sleep(2)
 
-    img = capture_image()
-    cv2.imshow('Image Captured',img)
+    # Capture image from camera
+    img = Camera.capture_and_preprocess()
+    cv2.imshow('Image Captured', img)
     cv2.waitKey()
     cv2.destroyAllWindows()
 
@@ -115,16 +59,11 @@ def evaluate_part():
 
 
 def main():
-    global cameras, converter
-
     setup_logging()
 
     try:
-        # Initialize camera ONCE
-        converter = configure_converter()
-        cameras = setup_cameras(exposure_time=30000.0, frame_rate=30.0)
-        cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)  # Start once here
-
+        # Initialize camera once
+        Camera = vision_pipeline.Camera(exposure_time=30000.0, frame_rate=30.0)
         logging.info("Camera initialized")
 
         while True:
@@ -134,7 +73,7 @@ def main():
 
             if Robot.receive_message() == "evaluate":
                 logging.info("Received evaluate command from robot.")
-                part_status = evaluate_part()
+                part_status = evaluate_part(Camera)
                 if part_status:
                     Robot.send_message("complete")
                 else:
@@ -145,8 +84,7 @@ def main():
     except Exception as e:
         logging.error(f"Error: {e}")
     finally:
-        if cameras:
-            cameras.StopGrabbing()  # Stop once at end
+        Camera.shutdown()
         logging.info("Program ended")
 
 
