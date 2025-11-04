@@ -73,7 +73,7 @@ class Camera:
             return None
 
     @staticmethod
-    def preprocess(self, img):
+    def preprocess(img):
         """Crop and normalize image for ML pipeline"""
         if img is None:
             logging.warning("Image is None, skipping preprocessing")
