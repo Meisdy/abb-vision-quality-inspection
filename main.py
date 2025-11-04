@@ -4,8 +4,6 @@ import os
 import time
 import abb_robot_comm
 import vision_pipeline
-from pypylon import genicam
-from pypylon import pylon
 from inference import evaluate_image, get_status
 
 os.environ["PYLON_CAMEMU"] = "3"
@@ -40,8 +38,8 @@ def evaluate_part(Camera):
     time.sleep(2)
 
     # Capture image from camera
-    img = Camera.capture_and_preprocess()
-    cv2.imshow('Image Captured', img)
+    img = Camera.capture_raw()
+    img = Camera.preprocess(img, True)
     cv2.waitKey()
     cv2.destroyAllWindows()
 
