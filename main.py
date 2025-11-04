@@ -35,7 +35,6 @@ def setup_logging():
 def evaluate_part(Camera):
     """Capture image and evaluate for defects"""
     logging.info("Evaluating part...")
-    time.sleep(2)
 
     # Capture image from camera
     img = Camera.capture_raw()
@@ -62,7 +61,6 @@ def main():
     try:
         # Initialize camera once
         Camera = vision_pipeline.Camera(exposure_time=30000.0, frame_rate=30.0)
-        logging.info("Camera initialized")
 
         while True:
             Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
