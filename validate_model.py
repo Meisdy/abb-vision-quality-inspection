@@ -10,7 +10,7 @@ def main():
     # Load device and model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = Autoencoder().to(device)
-    model.load_state_dict(torch.load('models/autoencoder_model.pth'))
+    model.load_state_dict(torch.load('models/autoencoder_model_test.pth'))
     model.eval()
 
     criterion = nn.MSELoss()
