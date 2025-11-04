@@ -1,6 +1,7 @@
 import os
 import sys
 import cv2
+import numpy as np
 import time
 from vision_pipeline import Camera
 
@@ -14,7 +15,7 @@ SAVE_DIR = "image_data/train"
 
 def capture_training_photos(camera, config_name, iteration, save_dir):
     """
-    Captures 2 photos automatically with 2s delay
+    Captures 2 photos, saves both .npy (for training) and .jpg (for viewing)
     Press SPACE to start capture, ESC to cancel
     """
     os.makedirs(save_dir, exist_ok=True)
@@ -22,7 +23,6 @@ def capture_training_photos(camera, config_name, iteration, save_dir):
     print(f"=== Iteration {iteration + 1} ===")
     print("Press SPACE to capture 2 photos, ESC to cancel")
 
-    # Create window ONCE before loop
     cv2.namedWindow('Camera Feed', cv2.WINDOW_AUTOSIZE)
 
     waiting_for_trigger = True
@@ -30,15 +30,15 @@ def capture_training_photos(camera, config_name, iteration, save_dir):
 
     while True:
         # Capture raw image
-        image = camera.capture_raw()
+        image_raw = camera.capture_raw()
 
-        if image is None:
+        if image_raw is None:
             print("ERROR: Failed to capture image")
             cv2.destroyAllWindows()
             return False
 
         # Display with instructions
-        display_img = image.copy()
+        display_img = image_raw.copy()
 
         if waiting_for_trigger:
             text = "Press SPACE to capture"
@@ -64,18 +64,38 @@ def capture_training_photos(camera, config_name, iteration, save_dir):
         # Auto-capture 2 photos with 2s delay
         if not waiting_for_trigger and photos_captured < 2:
             if photos_captured == 0:
-                filename = f"{save_dir}/{config_name}_{iteration:02d}_01.jpg"
-                cv2.imwrite(filename, image)
-                print(f"✓ Photo 1/2 saved: {filename}")
+                # Preprocess
+                image_processed = camera.preprocess(image_raw)
+
+                # Save both .npy (for training) and .jpg (for viewing)
+                filename_npy = f"{save_dir}/{config_name}_{iteration:02d}_01.npy"
+                filename_jpg = f"{save_dir}/{config_name}_{iteration:02d}_01.jpg"
+
+                np.save(filename_npy, image_processed)
+                cv2.imwrite(filename_jpg, image_raw)
+
+                print(f"✓ Photo 1/2 saved")
+                print(f"  - Processed: {filename_npy}")
+                print(f"  - Viewable: {filename_jpg}")
                 photos_captured += 1
 
                 # Wait 2 seconds before next capture
                 time.sleep(2)
 
             elif photos_captured == 1:
-                filename = f"{save_dir}/{config_name}_{iteration:02d}_02.jpg"
-                cv2.imwrite(filename, image)
-                print(f"✓ Photo 2/2 saved: {filename}")
+                # Preprocess
+                image_processed = camera.preprocess(image_raw)
+
+                # Save both .npy (for training) and .jpg (for viewing)
+                filename_npy = f"{save_dir}/{config_name}_{iteration:02d}_02.npy"
+                filename_jpg = f"{save_dir}/{config_name}_{iteration:02d}_02.jpg"
+
+                np.save(filename_npy, image_processed)
+                cv2.imwrite(filename_jpg, image_raw)
+
+                print(f"✓ Photo 2/2 saved")
+                print(f"  - Processed: {filename_npy}")
+                print(f"  - Viewable: {filename_jpg}")
                 photos_captured += 1
 
                 # Done with this iteration
@@ -88,10 +108,9 @@ def main():
     print(f"Configuration: {CONFIG_NAME}")
     print(f"Target iterations: {NUM_ITERATIONS}")
     print(f"Save location: {SAVE_DIR}")
-    input("\nPress Enter to start capture session...")
 
     try:
-        # Initialize camera once (with continuous grabbing)
+        # Initialize camera once
         camera = Camera(exposure_time=30000.0, frame_rate=30.0)
 
         # Capture loop
@@ -99,17 +118,28 @@ def main():
             print(f"\n{'=' * 50}")
             print(f"ITERATION {iteration + 1}/{NUM_ITERATIONS}")
             print(f"{'=' * 50}")
-            input("Place assembly, press Enter...")
 
-            success = capture_training_photos(camera, CONFIG_NAME, iteration, SAVE_DIR)
+            if iteration == 0:
+                input("Place assembly, press Enter...")
+            else:
+                input("Replace assembly, press Enter...")
+
+            success = capture_training_photos(
+                camera,
+                CONFIG_NAME,
+                iteration,
+                SAVE_DIR
+            )
 
             if not success:
                 print("Session cancelled by user")
                 break
 
         print(f"\n✓ Capture session complete!")
-        total_images = len([f for f in os.listdir(SAVE_DIR) if f.endswith('.jpg')])
-        print(f"Total images saved: {total_images}")
+        npy_count = len([f for f in os.listdir(SAVE_DIR) if f.endswith('.npy')])
+        jpg_count = len([f for f in os.listdir(SAVE_DIR) if f.endswith('.jpg')])
+        print(f"Total processed (.npy): {npy_count}")
+        print(f"Total viewable (.jpg): {jpg_count}")
 
     except Exception as e:
         print(f"ERROR: {e}")
