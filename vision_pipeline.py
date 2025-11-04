@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 from pypylon import pylon, genicam
@@ -89,7 +90,7 @@ class Camera:
         img = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
 
         if visualisation:
-            img = cv2.resize(img, (1500,1500))
+            img = cv2.resize(img, (1500, 1500))
             cv2.imshow('Preprocessed Image', img)
 
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -108,3 +109,13 @@ class Camera:
         if self.cameras:
             self.cameras.StopGrabbing()
         logging.info("Camera shutdown complete")
+
+
+def load_images(folder):
+    """Load only .npy files (already preprocessed)"""
+    images = []
+    for file in sorted(os.listdir(folder)):
+        if file.endswith('.npy'):
+            img = np.load(os.path.join(folder, file))
+            images.append(img)
+    return np.array(images)
