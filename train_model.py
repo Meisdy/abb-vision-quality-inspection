@@ -1,86 +1,55 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import cv2
 import numpy as np
 import os
+from vision_pipeline import load_images
 from torch.utils.data import DataLoader, TensorDataset
 from models import Autoencoder
 
-
-# Functions and Classes
-def load_images(folder):
-    images = []
-    for file in sorted(os.listdir(folder)):
-        if file.endswith(('.jpg', '.png')):
-            img = cv2.imread(os.path.join(folder, file))
-
-            # 1. Crop to assembly area (e.g., center region)
-            height, width = img.shape[:2]
-            crop_x = int(width * 0.15)  # Start at % from left
-            crop_y = int(height * 0.02)  # Start at % from top
-            crop_w = int(width * 0.6)  # Width = % of total
-            crop_h = int(height * 0.6)  # Height = % of total
-            img = img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
-
-            # 2. Then resize
-            img = cv2.resize(img, (512, 512))  # Change for details vs calc time.
-
-            # 3. Rest of processing...
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = img / 255.0
-            img = np.transpose(img, (2, 0, 1))
-            images.append(img)
-    return np.array(images)
+# Configuration
+EPOCHS = 50
+BATCH_SIZE = 4
+LEARNING_RATE = 0.001
 
 
-# Training the Modell:
-# Device: GPU if available, else CPU
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def main():
+    # Load preprocessed images
+    images = load_images('image_data/train/')
 
-# Create model and move to device
-model = Autoencoder().to(device)
+    # Convert to tensor
+    images_tensor = torch.from_numpy(images).float()
+    dataset = TensorDataset(images_tensor)
+    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# Optimizer: Adam adjusts weights to minimize loss
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # Setup device and model
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = Autoencoder().to(device)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    criterion = nn.MSELoss()
 
-# Loss function: Measures reconstruction error (original vs output)
-criterion = nn.MSELoss()
+    # Train
+    for epoch in range(EPOCHS):
+        total_loss = 0
 
-# Load images from folder
-images = load_images('image_data/train/')
+        for batch in loader:
+            img = batch[0].to(device)
 
-# Convert numpy array → PyTorch tensor (required for PyTorch)
-images_tensor = torch.from_numpy(images).float()
+            optimizer.zero_grad()
+            output = model(img)
+            loss = criterion(output, img)
+            loss.backward()
+            optimizer.step()
 
-# Package tensor into dataset
-dataset = TensorDataset(images_tensor)
+            total_loss += loss.item()
 
-# Create batches of 4 images, randomized order each epoch
-loader = DataLoader(dataset, batch_size=4, shuffle=True)
+        avg_loss = total_loss / len(loader)
+        print(f'Epoch {epoch + 1}/{EPOCHS}, Loss: {avg_loss:.6f}')
 
-# Number of complete passes through all images
-epochs = 50
+    # Save model
+    torch.save(model.state_dict(), 'models/autoencoder_model.pth')
+    print("✓ Model saved!")
 
-# Loop through epochs
-for epoch in range(epochs):
-    total_loss = 0  # Track loss for this epoch
 
-    # Loop through batches (12 batches of 4 images each)
-    for batch in loader:
-        img = batch[0].to(device)  # Get 4 images, move to GPU/CPU
-
-        optimizer.zero_grad()  # Clear old gradients from previous batch
-        output = model(img)  # Pass images through model (forward)
-        loss = criterion(output, img)  # Calculate reconstruction error
-        loss.backward()  # Calculate gradients (how to fix weights)
-        optimizer.step()  # Update weights based on gradients
-
-        total_loss += loss.item()  # Add this batch's loss to total
-
-    # Print average loss for this epoch
-    print(f'Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(loader):.6f}')
-
-# Save trained model weights to file
-torch.save(model.state_dict(), 'models/autoencoder_model.pth')
-print("Model saved!")
+if __name__ == '__main__':
+    main()
