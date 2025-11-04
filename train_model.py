@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import os
 from torch.utils.data import DataLoader, TensorDataset
+from models import Autoencoder
 
 
 # Functions and Classes
@@ -31,36 +32,6 @@ def load_images(folder):
             img = np.transpose(img, (2, 0, 1))
             images.append(img)
     return np.array(images)
-
-
-# Autoencoder
-class Autoencoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(3, 64, 3, padding=1),  # Layer 1, Read 3 Channels, exract 64 Features, use 3x3 filter
-            nn.ReLU(),  # Makes it non-linear. Better for feature learning
-            nn.MaxPool2d(2),  # Shrink images by 2, then continue with next layer
-            nn.Conv2d(64, 128, 3, padding=1),  # Layer 2
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(128, 256, 3, padding=1),  # Layer 3
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-        )
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(256, 128, 2, stride=2),  # expands image back,
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 2, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 3, 2, stride=2),
-            nn.Sigmoid(),  # Output between 0 and 1 for normalise image
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        return decoded
 
 
 # Training the Modell:
