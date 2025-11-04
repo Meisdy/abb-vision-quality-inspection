@@ -5,7 +5,7 @@ from pypylon import pylon, genicam
 import logging
 
 # Configuration
-IMAGE_SIZE = 384
+IMAGE_SIZE = 512
 CROP_X = 0.15
 CROP_Y = 0.02
 CROP_W = 0.6
@@ -89,10 +89,15 @@ class Camera:
         img = img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
         img = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
 
+        # Show BEFORE normalization (if needed)
         if visualisation:
-            img = cv2.resize(img, (1500, 1500))
+            cv2.namedWindow('Preprocessed Image', cv2.WINDOW_NORMAL)
             cv2.imshow('Preprocessed Image', img)
+            cv2.resizeWindow('Preprocessed Image', 800, 800)  # ✅ Bigger window
+            cv2.waitKey(0)
+            cv2.destroyWindow('Preprocessed Image')
 
+        # THEN do normalization + transpose
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = img / 255.0
         img = np.transpose(img, (2, 0, 1))
