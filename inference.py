@@ -5,7 +5,7 @@ from models import Autoencoder
 # Global model (load once at startup)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Autoencoder().to(device)
-model.load_state_dict(torch.load('models/autoencoder_model_test.pth'))
+model.load_state_dict(torch.load('models/autoencoder_modeel_yellow_v1.pth'))
 model.eval()
 criterion = nn.MSELoss()
 
@@ -26,7 +26,7 @@ def evaluate_image(img_array):
     return loss
 
 
-def get_status(loss, threshold=0.0055):
+def get_status(loss, threshold=0.0040):
     """Returns "OK" or "DEFECT" based on loss"""
     if loss < threshold:
         return "OK"
