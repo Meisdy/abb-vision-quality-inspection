@@ -141,12 +141,20 @@ def augment_for_anomaly(img):
 
 
 def load_images_npy(folder):
-    """Load only .npy files (already preprocessed)"""
+    """Load only .npy files from processed subfolder"""
     images = []
+
+    if not os.path.exists(folder):
+        print(f"Warning: {folder} not found")
+        return np.array(images)
+
     for file in sorted(os.listdir(folder)):
         if file.endswith('.npy'):
-            img = np.load(os.path.join(folder, file))
+            filepath = os.path.join(folder, file)
+            img = np.load(filepath)
             images.append(img)
+
+    print(f"Found {len(images)} .npy files in {folder}")
     return np.array(images)
 
 
