@@ -2,39 +2,109 @@ import torch
 import torch.nn as nn
 import numpy as np
 import os
-from vision_pipeline import load_images
+from vision_pipeline import load_images_npy
 from models import Autoencoder
+
+# Configuration
+AUTOENCODER_NAME = 'autoencoder_model_yellow_v2_r1024.pth'
+USE_MANUAL_THRESHOLD = False
+MANUAL_THRESHOLD = 0.001240
+
+
+def find_optimal_threshold_f1(losses, labels):
+    """Find threshold that maximizes F1-score."""
+    best_f1 = 0
+    best_threshold = 0
+    best_metrics = {}
+
+    for threshold in np.linspace(losses.min(), losses.max(), 100):
+        predictions = (losses > threshold).astype(int)
+
+        tp = np.sum((predictions == 1) & (labels == 1))
+        fp = np.sum((predictions == 1) & (labels == 0))
+        tn = np.sum((predictions == 0) & (labels == 0))
+        fn = np.sum((predictions == 0) & (labels == 1))
+
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = threshold
+            best_metrics = {
+                'precision': precision,
+                'recall': recall,
+                'f1': f1,
+                'tp': int(tp),
+                'fp': int(fp),
+                'tn': int(tn),
+                'fn': int(fn)
+            }
+
+    return best_threshold, best_metrics
 
 
 def main():
-    # Load device and model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Device: {device}\n')
+
     model = Autoencoder().to(device)
-    model.load_state_dict(torch.load('models/autoencoder_model_test.pth'))
+    path = os.path.join('models', AUTOENCODER_NAME)
+    model.load_state_dict(torch.load(path))
     model.eval()
 
     criterion = nn.MSELoss()
 
-    # Load validation images
-    val_images = load_images('image_data/validation/')
+    val_folder = 'image_data/validation/'
+    val_images = load_images_npy(val_folder)
     val_tensor = torch.from_numpy(val_images).float()
+    val_files = sorted([f for f in os.listdir(val_folder) if f.endswith('.npy')])
 
-    # Test each image
-    threshold = 0.0055
-    print("\nValidation Results:")
-    print("-" * 50)
+    # Collect losses
+    losses = []
+    labels = []
 
+    print('Collecting losses...')
     for i, img in enumerate(val_tensor):
         img_batch = img.unsqueeze(0).to(device)
-
         with torch.no_grad():
             output = model(img_batch)
             loss = criterion(output, img_batch).item()
 
-        status = "OK" if loss < threshold else "DEFECT"
-        print(f"Image {i + 1}: Loss = {loss:.6f} → {status}")
+        losses.append(loss)
+        labels.append(1 if 'false' in val_files[i].lower() else 0)
 
-    print("-" * 50)
+    losses = np.array(losses)
+    labels = np.array(labels)
+
+    # Determine threshold
+    if USE_MANUAL_THRESHOLD:
+        threshold = MANUAL_THRESHOLD
+        print(f'Using manual threshold: {threshold:.6f}\n')
+    else:
+        threshold, metrics = find_optimal_threshold_f1(losses, labels)
+        correct_losses = losses[labels == 0]
+        defect_losses = losses[labels == 1]
+
+        print(f'F1-Score Optimization:')
+        print(f'  Threshold: {threshold:.6f}')
+        print(f'  Precision: {metrics["precision"]:.4f}, Recall: {metrics["recall"]:.4f}, F1: {metrics["f1"]:.4f}')
+        print(f'  TP: {metrics["tp"]}, FP: {metrics["fp"]}, TN: {metrics["tn"]}, FN: {metrics["fn"]}\n')
+        print(f'Correct assemblies: Mean={correct_losses.mean():.6f}, Std={correct_losses.std():.6f}')
+        print(f'Defect assemblies:  Mean={defect_losses.mean():.6f}, Std={defect_losses.std():.6f}\n')
+
+    # Validation results
+    print('=' * 100)
+    print(f'{"ID":<5} {"Filename":<50} {"Loss":<12} {"Predict":<10} {"True":<10}')
+    print('=' * 100)
+
+    for i, (loss, label, filename) in enumerate(zip(losses, labels, val_files)):
+        prediction = "DEFECT" if loss > threshold else "OK"
+        true_label = "DEFECT" if label == 1 else "OK"
+        print(f'{i + 1:<5} {filename:<50} {loss:<12.6f} {prediction:<10} {true_label:<10}')
+
+    print('=' * 100)
 
 
 if __name__ == '__main__':
