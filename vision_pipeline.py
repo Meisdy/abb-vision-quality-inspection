@@ -5,7 +5,7 @@ from pypylon import pylon, genicam
 import logging
 
 # Configuration
-IMAGE_SIZE = 512
+IMAGE_SIZE = 1024
 CROP_X = 0.15
 CROP_Y = 0.02
 CROP_W = 0.6
@@ -116,7 +116,31 @@ class Camera:
         logging.info("Camera shutdown complete")
 
 
-def load_images(folder):
+def augment_for_anomaly(img):
+    """Apply augmentations suitable for anomaly detection training.
+    img should be uint8 HWC format (before normalization)"""
+
+    # Random small rotation (±15 degrees)
+    if np.random.rand() < 0.5:
+        angle = np.random.uniform(-15, 15)
+        h, w = img.shape[:2]
+        M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+        img = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+
+    # Random brightness adjustment
+    if np.random.rand() < 0.6:
+        brightness_factor = np.random.uniform(0.85, 1.15)
+        img = np.clip(img * brightness_factor, 0, 255).astype(np.uint8)
+
+    # Random contrast adjustment
+    if np.random.rand() < 0.4:
+        contrast_factor = np.random.uniform(0.9, 1.1)
+        img = np.clip((img - 128) * contrast_factor + 128, 0, 255).astype(np.uint8)
+
+    return img
+
+
+def load_images_npy(folder):
     """Load only .npy files (already preprocessed)"""
     images = []
     for file in sorted(os.listdir(folder)):
@@ -124,3 +148,23 @@ def load_images(folder):
             img = np.load(os.path.join(folder, file))
             images.append(img)
     return np.array(images)
+
+
+def load_images(folder):
+    """Load all image files from folder."""
+    images = []
+    filenames = []
+
+    for filename in sorted(os.listdir(folder)):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
+            img = cv2.imread(os.path.join(folder, filename))
+            if img is not None:
+                images.append(img)
+                filenames.append(filename)
+
+    return np.array(images), filenames
+
+
+
+
+
