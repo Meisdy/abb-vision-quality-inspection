@@ -1,10 +1,12 @@
-# models.py
+import torch
 import torch.nn as nn
 
 
 class Autoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, use_attention=False):
         super().__init__()
+        self.use_attention = use_attention
+
         self.encoder = nn.Sequential(
             nn.Conv2d(3, 64, 3, padding=1),
             nn.ReLU(),
@@ -16,6 +18,7 @@ class Autoencoder(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
+
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(256, 128, 2, stride=2),
             nn.ReLU(),
@@ -25,7 +28,23 @@ class Autoencoder(nn.Module):
             nn.Sigmoid(),
         )
 
+        # Optional attention network
+        if self.use_attention:
+            self.attention = nn.Sequential(
+                nn.Conv2d(3, 32, 3, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(32, 32, 3, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(32, 1, 3, padding=1),
+                nn.Sigmoid()
+            )
+
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
-        return decoded
+
+        if self.use_attention:
+            attention_mask = self.attention(x)
+            return decoded, attention_mask
+        else:
+            return decoded
