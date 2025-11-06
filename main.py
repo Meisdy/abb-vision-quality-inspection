@@ -11,7 +11,7 @@ os.environ["PYLON_CAMEMU"] = "3"
 # Constants
 USE_CAMERA = True
 USE_ROBOT = True
-IP_ABB_ROBOT = '192.168.125.5'
+IP_ABB_ROBOT = '192.168.125.201'
 maxCamerasToUse = 1
 
 
