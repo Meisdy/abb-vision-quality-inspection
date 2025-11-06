@@ -6,9 +6,10 @@ from vision_pipeline import load_images_npy
 from models import Autoencoder
 
 # Configuration
-AUTOENCODER_NAME = 'autoencoder_model_yellow_v2_r1024.pth'
+AUTOENCODER_NAME = 'autoencoder_yellow_weighted_e100_b4_lr10.pth'
 USE_MANUAL_THRESHOLD = False
 MANUAL_THRESHOLD = 0.001240
+PATH = 'image_data/validation/processed'
 
 
 def find_optimal_threshold_f1(losses, labels):
@@ -49,17 +50,22 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Device: {device}\n')
 
-    model = Autoencoder().to(device)
+    # Detect model type from filename
+    use_attention = 'weighted' in AUTOENCODER_NAME.lower()
+
+    model = Autoencoder(use_attention=use_attention).to(device)
     path = os.path.join('models', AUTOENCODER_NAME)
     model.load_state_dict(torch.load(path))
     model.eval()
 
-    criterion = nn.MSELoss()
+    print(f'Model: {"Weighted" if use_attention else "Standard"} Autoencoder')
+    print(f'Threshold: {"Manual" if USE_MANUAL_THRESHOLD else "Optimized (F1)"}\n')
 
-    val_folder = 'image_data/validation/'
-    val_images = load_images_npy(val_folder)
+    criterion = nn.MSELoss(reduction='none' if use_attention else 'mean')
+
+    val_images = load_images_npy(PATH)
     val_tensor = torch.from_numpy(val_images).float()
-    val_files = sorted([f for f in os.listdir(val_folder) if f.endswith('.npy')])
+    val_files = sorted([f for f in os.listdir(PATH) if f.endswith('.npy')])
 
     # Collect losses
     losses = []
@@ -70,7 +76,15 @@ def main():
         img_batch = img.unsqueeze(0).to(device)
         with torch.no_grad():
             output = model(img_batch)
-            loss = criterion(output, img_batch).item()
+
+            # Handle both standard and weighted models
+            if isinstance(output, tuple):
+                decoded, attention_mask = output
+                pixel_loss = criterion(decoded, img_batch)
+                attention_mask_expanded = attention_mask.expand_as(pixel_loss)
+                loss = (pixel_loss * attention_mask_expanded).mean().item()
+            else:
+                loss = criterion(output, img_batch).item()
 
         losses.append(loss)
         labels.append(1 if 'false' in val_files[i].lower() else 0)
@@ -84,15 +98,11 @@ def main():
         print(f'Using manual threshold: {threshold:.6f}\n')
     else:
         threshold, metrics = find_optimal_threshold_f1(losses, labels)
-        correct_losses = losses[labels == 0]
-        defect_losses = losses[labels == 1]
 
         print(f'F1-Score Optimization:')
-        print(f'  Threshold: {threshold:.6f}')
+        print(f'  Threshold: {threshold:.10f}')
         print(f'  Precision: {metrics["precision"]:.4f}, Recall: {metrics["recall"]:.4f}, F1: {metrics["f1"]:.4f}')
         print(f'  TP: {metrics["tp"]}, FP: {metrics["fp"]}, TN: {metrics["tn"]}, FN: {metrics["fn"]}\n')
-        print(f'Correct assemblies: Mean={correct_losses.mean():.6f}, Std={correct_losses.std():.6f}')
-        print(f'Defect assemblies:  Mean={defect_losses.mean():.6f}, Std={defect_losses.std():.6f}\n')
 
     # Validation results
     print('=' * 100)
@@ -102,7 +112,7 @@ def main():
     for i, (loss, label, filename) in enumerate(zip(losses, labels, val_files)):
         prediction = "DEFECT" if loss > threshold else "OK"
         true_label = "DEFECT" if label == 1 else "OK"
-        print(f'{i + 1:<5} {filename:<50} {loss:<12.6f} {prediction:<10} {true_label:<10}')
+        print(f'{i + 1:<5} {filename:<50} {loss:<12.10f} {prediction:<10} {true_label:<10}')
 
     print('=' * 100)
 
