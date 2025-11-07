@@ -4,8 +4,9 @@ import vision_pipeline
 from vision_pipeline import load_images, Camera
 
 # Configuration
-input_folder = 'image_data/validation'
-output_folder = 'image_data/validation/processed'
+FOLDER = 'validation'
+input_folder = f'image_data/{FOLDER}'
+output_folder = f'image_data/{FOLDER}/processed'
 
 # Create output folder if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)
