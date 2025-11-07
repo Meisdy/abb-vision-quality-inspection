@@ -74,18 +74,34 @@ class Camera:
             return None
 
     @staticmethod
-    def preprocess(img, visualisation=False):
+    def preprocess(img, crop=None, visualisation=False):
         """Crop and normalize image for ML pipeline"""
         if img is None:
             logging.warning("Image is None, skipping preprocessing")
             return None
 
         height, width = img.shape[:2]
-        crop_x = int(width * CROP_X)
-        crop_y = int(height * CROP_Y)
-        crop_w = int(width * CROP_W)
-        crop_h = int(height * CROP_H)
 
+        if crop is None:
+            crop_x = int(width * CROP_X)
+            crop_y = int(height * CROP_Y)
+            crop_w = int(width * CROP_W)
+            crop_h = int(height * CROP_H)
+        else:
+            # absolute pixel ROI expected: (x, y, w, h)
+            try:
+                crop_x, crop_y, crop_w, crop_h = [int(v) for v in crop]
+            except Exception:
+                logging.error(f"Invalid crop tuple {crop}. Expected (x,y,w,h) integers.")
+                return None
+
+            # bounds clamp
+            crop_x = max(0, min(crop_x, width - 1))
+            crop_y = max(0, min(crop_y, height - 1))
+            crop_w = max(1, min(crop_w, width - crop_x))
+            crop_h = max(1, min(crop_h, height - crop_y))
+
+        # perform crop
         img = img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
         img = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
 
