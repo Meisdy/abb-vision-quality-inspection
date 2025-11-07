@@ -4,22 +4,22 @@ import torch.optim as optim
 import numpy as np
 import os
 
+from models import Autoencoder, DeepAutoencoder
 from vision_pipeline import load_images_npy, augment_for_anomaly
 from torch.utils.data import DataLoader, TensorDataset
-from models import Autoencoder
 
 # Configuration
-EPOCHS = 100
+EPOCHS = 50
 BATCH_SIZE = 4  # Don't use 12, it will give a BSOD!
 LEARNING_RATE = 0.001
-USE_ATTENTION = True
+USE_ATTENTION = False
 
 
 def generate_model_name():
     """Generate model name from current settings."""
     model_type = "weighted" if USE_ATTENTION else "standard"
     lr_str = f"lr{int(LEARNING_RATE * 10000)}"
-    return f"autoencoder_yellow_{model_type}_e{EPOCHS}_b{BATCH_SIZE}_{lr_str}.pth"
+    return f"autoencoder_yellow_deep_{model_type}_e{EPOCHS}_b{BATCH_SIZE}_{lr_str}.pth"
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
     loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Setup model
-    model = Autoencoder(use_attention=USE_ATTENTION).to(device)
+    model = DeepAutoencoder(use_attention=USE_ATTENTION).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     criterion = nn.MSELoss(reduction='none' if USE_ATTENTION else 'mean')
 
@@ -86,8 +86,11 @@ def main():
             optimizer.step()
             total_loss += loss.item()
 
+        if epoch == 1:
+            print(f'GPU Memory: {round(torch.cuda.memory_reserved(0) / 1024 ** 3, 1)} GB')
+
         avg_loss = total_loss / len(loader)
-        print(f'Epoch {epoch + 1:3d}/{EPOCHS} | Loss: {avg_loss:.10f} | GPU Memory: {round(torch.cuda.memory_reserved(0) / 1024**3, 1)} GB\n')
+        print(f'Epoch {epoch + 1:3d}/{EPOCHS} | Loss: {avg_loss:.10f}')
 
     # Save model with auto-generated name
     os.makedirs('models', exist_ok=True)
