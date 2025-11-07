@@ -6,9 +6,9 @@ from vision_pipeline import load_images_npy
 from models import Autoencoder
 
 # Configuration
-AUTOENCODER_NAME = 'autoencoder_yellow_standard_e100_b4_lr10.pth'
+AUTOENCODER_NAME = 'AC_yellow_standard_e60_b4_lr20_res1024.pth'
 USE_MANUAL_THRESHOLD = False
-MANUAL_THRESHOLD = 0.001240
+MANUAL_THRESHOLD = 0.0008
 PATH = 'image_data/validation/processed'
 
 
@@ -65,7 +65,7 @@ def main():
         model_type = "Weighted" if use_attention else "Standard"
 
     path = os.path.join('models', AUTOENCODER_NAME)
-    model.load_state_dict(torch.load(path))
+    model.load_state_dict(torch.load(path, map_location=device))  # Add map_location=device
     model.eval()
 
     print(f'Model: {model_type} Autoencoder')
