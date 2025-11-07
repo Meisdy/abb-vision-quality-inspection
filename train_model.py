@@ -9,17 +9,18 @@ from vision_pipeline import load_images_npy, augment_for_anomaly
 from torch.utils.data import DataLoader, TensorDataset
 
 # Configuration
-EPOCHS = 50
+EPOCHS = 75
 BATCH_SIZE = 4  # Don't use 12, it will give a BSOD!
 LEARNING_RATE = 0.001
 USE_ATTENTION = False
+USE_AUGMENTATION = False
 
 
 def generate_model_name():
     """Generate model name from current settings."""
     model_type = "weighted" if USE_ATTENTION else "standard"
     lr_str = f"lr{int(LEARNING_RATE * 10000)}"
-    return f"autoencoder_yellow_deep_{model_type}_e{EPOCHS}_b{BATCH_SIZE}_{lr_str}.pth"
+    return f"AC_yellow_{model_type}_e{EPOCHS}_b{BATCH_SIZE}_{lr_str}_res1024.pth"
 
 
 def main():
@@ -28,23 +29,24 @@ def main():
 
     # Load preprocessed images
     print('Loading images...')
-    images = load_images_npy('image_data/train/')
+    images = load_images_npy('image_data/train/processed')
 
     # Start with originals
     training_images = list(images)
 
-    # Add augmented versions
-    print(f'Augmenting images...')
-    for img in images:
-        img_hwc = np.transpose(img, (1, 2, 0))
-        img_hwc = (img_hwc * 255).astype(np.uint8)
-        img_hwc = augment_for_anomaly(img_hwc)
-        img_aug = img_hwc / 255.0
-        img_aug = np.transpose(img_aug, (2, 0, 1))
-        training_images.append(img_aug)
+    if USE_AUGMENTATION:
+        # Add augmented versions
+        print(f'Augmenting images...')
+        for img in images:
+            img_hwc = np.transpose(img, (1, 2, 0))
+            img_hwc = (img_hwc * 255).astype(np.uint8)
+            img_hwc = augment_for_anomaly(img_hwc)
+            img_aug = img_hwc / 255.0
+            img_aug = np.transpose(img_aug, (2, 0, 1))
+            training_images.append(img_aug)
 
     images = np.array(training_images)
-    print(f'Training dataset size: {len(images)} (originals + augmented)\n')
+    print(f'Training dataset size: {len(images)}\n')
 
     # Convert to tensor
     images_tensor = torch.from_numpy(images).float()
@@ -52,7 +54,7 @@ def main():
     loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Setup model
-    model = DeepAutoencoder(use_attention=USE_ATTENTION).to(device)
+    model = Autoencoder(use_attention=USE_ATTENTION).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     criterion = nn.MSELoss(reduction='none' if USE_ATTENTION else 'mean')
 
