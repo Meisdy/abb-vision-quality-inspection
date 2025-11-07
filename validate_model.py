@@ -6,7 +6,7 @@ from vision_pipeline import load_images_npy
 from models import Autoencoder
 
 # Configuration
-AUTOENCODER_NAME = 'autoencoder_yellow_weighted_e100_b4_lr10.pth'
+AUTOENCODER_NAME = 'autoencoder_yellow_standard_e100_b4_lr10.pth'
 USE_MANUAL_THRESHOLD = False
 MANUAL_THRESHOLD = 0.001240
 PATH = 'image_data/validation/processed'
@@ -52,13 +52,23 @@ def main():
 
     # Detect model type from filename
     use_attention = 'weighted' in AUTOENCODER_NAME.lower()
+    use_deep = 'deep' in AUTOENCODER_NAME.lower()
 
-    model = Autoencoder(use_attention=use_attention).to(device)
+    # Import the correct model class
+    if use_deep:
+        from models import DeepAutoencoder
+        model = DeepAutoencoder(use_attention=use_attention).to(device)
+        model_type = "Deep " + ("Weighted" if use_attention else "Standard")
+    else:
+        from models import Autoencoder
+        model = Autoencoder(use_attention=use_attention).to(device)
+        model_type = "Weighted" if use_attention else "Standard"
+
     path = os.path.join('models', AUTOENCODER_NAME)
     model.load_state_dict(torch.load(path))
     model.eval()
 
-    print(f'Model: {"Weighted" if use_attention else "Standard"} Autoencoder')
+    print(f'Model: {model_type} Autoencoder')
     print(f'Threshold: {"Manual" if USE_MANUAL_THRESHOLD else "Optimized (F1)"}\n')
 
     criterion = nn.MSELoss(reduction='none' if use_attention else 'mean')
