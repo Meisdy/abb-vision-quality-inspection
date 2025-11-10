@@ -6,10 +6,10 @@ import logging
 
 # Configuration
 IMAGE_SIZE = 1024
-CROP_X = 0.15
-CROP_Y = 0.02
-CROP_W = 0.6
-CROP_H = 0.6
+CROP_X = 0.22
+CROP_Y = 0.03
+CROP_W = 0.49
+CROP_H = 0.55
 
 
 class Camera:
