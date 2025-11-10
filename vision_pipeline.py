@@ -74,7 +74,7 @@ class Camera:
             return None
 
     @staticmethod
-    def preprocess(img, crop=None, visualisation=False):
+    def preprocess(img, crop=None, res=IMAGE_SIZE, visualisation=False):
         """Crop and normalize image for ML pipeline"""
         if img is None:
             logging.warning("Image is None, skipping preprocessing")
@@ -103,7 +103,7 @@ class Camera:
 
         # perform crop
         img = img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
-        img = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
+        img = cv2.resize(img, (res, res))
 
         # Show BEFORE normalization (if needed)
         if visualisation:
