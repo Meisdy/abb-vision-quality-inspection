@@ -4,9 +4,8 @@ import vision_pipeline
 from vision_pipeline import load_images, Camera
 
 # Configuration
-FOLDER = 'validation'
-input_folder = f'image_data/{FOLDER}'
-output_folder = f'image_data/{FOLDER}/processed'
+input_folder = f'image_data/Correct_Yellow'
+output_folder = input_folder + '/processed'
 
 # Create output folder if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)
@@ -16,7 +15,7 @@ images, filenames = load_images(input_folder)
 
 # Process each image
 for img, filename in zip(images, filenames):
-    processed = Camera.preprocess(img)
+    processed = Camera.preprocess(img, res=512, visualisation=False)
 
     if processed is not None:
         # Save as .npy with same filename
