@@ -4,7 +4,7 @@ import os
 import time
 import abb_robot_comm
 import vision_pipeline
-from inference import evaluate_image, get_status
+from ML.inference import evaluate_image, get_status
 
 os.environ["PYLON_CAMEMU"] = "3"
 

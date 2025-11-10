@@ -9,7 +9,7 @@ from models import Autoencoder
 AUTOENCODER_NAME = 'AC_yellow_standard_e60_b4_lr20_res1024.pth'
 USE_MANUAL_THRESHOLD = False
 MANUAL_THRESHOLD = 0.0008
-PATH = 'image_data/validation/processed'
+PATH = '../image_data/validation/processed'
 
 
 def find_optimal_threshold_f1(losses, labels):
@@ -64,7 +64,7 @@ def main():
         model = Autoencoder(use_attention=use_attention).to(device)
         model_type = "Weighted" if use_attention else "Standard"
 
-    path = os.path.join('models', AUTOENCODER_NAME)
+    path = os.path.join('../models', AUTOENCODER_NAME)
     model.load_state_dict(torch.load(path, map_location=device))  # Add map_location=device
     model.eval()
 
