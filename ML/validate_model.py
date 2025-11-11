@@ -64,7 +64,7 @@ def main():
         model = Autoencoder(use_attention=use_attention).to(device)
         model_type = "Weighted" if use_attention else "Standard"
 
-    path = os.path.join('../models', AUTOENCODER_NAME)
+    path = os.path.join('models', AUTOENCODER_NAME)
     model.load_state_dict(torch.load(path, map_location=device))  # Add map_location=device
     model.eval()
 

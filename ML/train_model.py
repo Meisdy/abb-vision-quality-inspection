@@ -95,9 +95,9 @@ def main():
         print(f'Epoch {epoch + 1:3d}/{EPOCHS} | Loss: {avg_loss:.10f}')
 
     # Save model with auto-generated name
-    os.makedirs('../models', exist_ok=True)
+    os.makedirs('models', exist_ok=True)
     model_name = generate_model_name()
-    model_path = os.path.join('../models', model_name)
+    model_path = os.path.join('models', model_name)
     torch.save(model.state_dict(), model_path)
     print(f'\n✓ Model saved: {model_name}')
 
