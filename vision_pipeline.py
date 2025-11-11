@@ -5,11 +5,15 @@ from pypylon import pylon, genicam
 import logging
 
 # Configuration
-IMAGE_SIZE = 1024
-CROP_X = 0.22
-CROP_Y = 0.03
-CROP_W = 0.49
-CROP_H = 0.55
+ROI = (528, 63, 1221, 1096)  # ROI for one big image, cropped to the borders of the colors of parts. (x, y, w, h)
+
+
+def setup_converter():
+    """Setup image format converter for BGR"""
+    converter = pylon.ImageFormatConverter()
+    converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+    converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+    return converter
 
 
 class Camera:
@@ -21,17 +25,10 @@ class Camera:
         self.max_cameras = max_cameras
 
         # Setup camera
-        self.converter = self.setup_converter()
+        self.converter = setup_converter()
         self.cameras = self.setup_cameras()
         self.cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
         logging.info("Camera initialized and grabbing started")
-
-    def setup_converter(self):
-        """Setup image format converter for BGR"""
-        converter = pylon.ImageFormatConverter()
-        converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-        converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-        return converter
 
     def setup_cameras(self):
         """Initialize Basler camera"""
@@ -73,58 +70,6 @@ class Camera:
             logging.error(f"Camera error: {e}")
             return None
 
-    @staticmethod
-    def preprocess(img, crop=None, res=IMAGE_SIZE, visualisation=False):
-        """Crop and normalize image for ML pipeline"""
-        if img is None:
-            logging.warning("Image is None, skipping preprocessing")
-            return None
-
-        height, width = img.shape[:2]
-
-        if crop is None:
-            crop_x = int(width * CROP_X)
-            crop_y = int(height * CROP_Y)
-            crop_w = int(width * CROP_W)
-            crop_h = int(height * CROP_H)
-        else:
-            # absolute pixel ROI expected: (x, y, w, h)
-            try:
-                crop_x, crop_y, crop_w, crop_h = [int(v) for v in crop]
-            except Exception:
-                logging.error(f"Invalid crop tuple {crop}. Expected (x,y,w,h) integers.")
-                return None
-
-            # bounds clamp
-            crop_x = max(0, min(crop_x, width - 1))
-            crop_y = max(0, min(crop_y, height - 1))
-            crop_w = max(1, min(crop_w, width - crop_x))
-            crop_h = max(1, min(crop_h, height - crop_y))
-
-        # perform crop
-        img = img[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
-        img = cv2.resize(img, (res, res))
-
-        # Show BEFORE normalization (if needed)
-        if visualisation:
-            cv2.namedWindow('Preprocessed Image', cv2.WINDOW_NORMAL)
-            cv2.imshow('Preprocessed Image', img)
-            cv2.resizeWindow('Preprocessed Image', 800, 800)  # ✅ Bigger window
-            cv2.waitKey(0)
-            cv2.destroyWindow('Preprocessed Image')
-
-        # THEN do normalization + transpose
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img / 255.0
-        img = np.transpose(img, (2, 0, 1))
-
-        return img
-
-    def capture_and_preprocess(self):
-        """Capture + preprocess in one call"""
-        raw = self.capture_raw()
-        return self.preprocess(raw)
-
     def shutdown(self):
         """Cleanup camera"""
         if self.cameras:
@@ -132,63 +77,119 @@ class Camera:
         logging.info("Camera shutdown complete")
 
 
-def augment_for_anomaly(img):
-    """Apply augmentations suitable for anomaly detection training.
-    img should be uint8 HWC format (before normalization)"""
+class VisionProcessor:
+    @staticmethod
+    def load_images(folder):
+        """Load all image files from folder."""
+        images = []
+        filenames = []
 
-    # Random small rotation (±15 degrees)
-    if np.random.rand() < 0.5:
-        angle = np.random.uniform(-15, 15)
-        h, w = img.shape[:2]
-        M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
-        img = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+        for filename in sorted(os.listdir(folder)):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
+                img = cv2.imread(os.path.join(folder, filename))
+                if img is not None:
+                    images.append(img)
+                    filenames.append(filename)
 
-    # Random brightness adjustment
-    if np.random.rand() < 0.6:
-        brightness_factor = np.random.uniform(0.85, 1.15)
-        img = np.clip(img * brightness_factor, 0, 255).astype(np.uint8)
+        return np.array(images), filenames
 
-    # Random contrast adjustment
-    if np.random.rand() < 0.4:
-        contrast_factor = np.random.uniform(0.9, 1.1)
-        img = np.clip((img - 128) * contrast_factor + 128, 0, 255).astype(np.uint8)
+    @staticmethod
+    def load_images_npy(folder):
+        """Load only .npy files from processed subfolder"""
+        images = []
 
-    return img
+        if not os.path.exists(folder):
+            print(f"Warning: {folder} not found")
+            return np.array(images)
 
+        for file in sorted(os.listdir(folder)):
+            if file.endswith('.npy'):
+                filepath = os.path.join(folder, file)
+                img = np.load(filepath)
+                images.append(img)
 
-def load_images_npy(folder):
-    """Load only .npy files from processed subfolder"""
-    images = []
-
-    if not os.path.exists(folder):
-        print(f"Warning: {folder} not found")
+        print(f"Found {len(images)} .npy files in {folder}")
         return np.array(images)
 
-    for file in sorted(os.listdir(folder)):
-        if file.endswith('.npy'):
-            filepath = os.path.join(folder, file)
-            img = np.load(filepath)
-            images.append(img)
+    @staticmethod
+    def crop(image, roi=ROI):
+        """Crop the image to roi=(x, y, w, h) and return result"""
+        if image is None:
+            raise ValueError("Input image is None")
+        x, y, w, h = roi
+        return image[y:y + h, x:x + w]
 
-    print(f"Found {len(images)} .npy files in {folder}")
-    return np.array(images)
+    @staticmethod
+    def preprocess(image, roi=ROI, resize_to=None, normalize=False, visualisation=False):
+        img = VisionProcessor.crop(image, roi)
+        if resize_to:
+            img = cv2.resize(img, (resize_to, resize_to))
+        if visualisation:
+            cv2.namedWindow('Preprocessed Image', cv2.WINDOW_NORMAL)
+            cv2.imshow('Preprocessed Image', img)
+            cv2.resizeWindow('Preprocessed Image', 800, 800)
+            cv2.waitKey(0)
+            cv2.destroyWindow('Preprocessed Image')
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if normalize:
+            img = img.astype(np.float32) / 255.0
+        img = np.transpose(img, (2, 0, 1))  # (C, H, W)
+        return img
 
+    @staticmethod
+    def augment_for_anomaly(img):
+        """Apply augmentations suitable for anomaly detection training.
+        img should be uint8 HWC format (before normalization)"""
 
-def load_images(folder):
-    """Load all image files from folder."""
-    images = []
-    filenames = []
+        # Random small rotation (±15 degrees)
+        if np.random.rand() < 0.5:
+            angle = np.random.uniform(-15, 15)
+            h, w = img.shape[:2]
+            M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+            img = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
 
-    for filename in sorted(os.listdir(folder)):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
-            img = cv2.imread(os.path.join(folder, filename))
-            if img is not None:
-                images.append(img)
-                filenames.append(filename)
+        # Random brightness adjustment
+        if np.random.rand() < 0.6:
+            brightness_factor = np.random.uniform(0.85, 1.15)
+            img = np.clip(img * brightness_factor, 0, 255).astype(np.uint8)
 
-    return np.array(images), filenames
+        # Random contrast adjustment
+        if np.random.rand() < 0.4:
+            contrast_factor = np.random.uniform(0.9, 1.1)
+            img = np.clip((img - 128) * contrast_factor + 128, 0, 255).astype(np.uint8)
 
+        return img
 
+    @staticmethod
+    def augment_lighting(img):
+        brightness_factor = np.random.uniform(0.9, 1.2)
+        img_aug = np.clip(img.astype(np.float32) * brightness_factor, 0, 255).astype(np.uint8)
 
+        # OPTIONAL: Remove or reduce channel dropout!
+        # if np.random.rand() < 0.1:  # Much smaller probability
+        #     channel = np.random.choice([0, 1, 2])
+        #     img_aug[:, :, channel] = img_aug[:, :, channel] // 2
+
+        contrast_factor = np.random.uniform(0.9, 1.1)
+        mean = np.mean(img_aug, axis=(0, 1), keepdims=True)
+        img_aug = np.clip((img_aug - mean) * contrast_factor + mean, 0, 255).astype(np.uint8)
+
+        return img_aug
+
+    @staticmethod
+    def augment_color_saturation(img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+        sat_scale = np.random.uniform(0.8, 1.2)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * sat_scale, 0, 255)
+        hue_shift = np.random.randint(-8, 9)
+        hsv[:, :, 0] = (hsv[:, :, 0] + hue_shift) % 180
+        val_scale = np.random.uniform(0.95, 1.05)
+        hsv[:, :, 2] = np.clip(hsv[:, :, 2] * val_scale, 0, 255)
+        img_aug = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        # If channel permutation is not realistic, comment this out:
+        # if np.random.rand() < 0.1:
+        #     order = np.random.permutation(3)
+        #     img_aug = img_aug[:, :, order]
+        return img_aug
 
 
