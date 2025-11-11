@@ -1,86 +1,20 @@
+import torch
+import numpy as np
+import torch.nn as nn
+import torch.optim as optim
+import vision_pipeline
 from pathlib import Path
-import time
-import torch, torch.nn as nn, torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, transforms, models
-from PIL import Image
+from vision_pipeline import VisionProcessor
+from torch.utils.data import DataLoader
+from torchvision import datasets, models
 
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 5
+EPOCHS = 10
 BATCH = 8
-IMG_SIZE = 512  # Set to whatever model expects
+IMG_SIZE = 512
 LR = 1e-3
-mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-
-# --- ROI Crop (change only here for different ROI)
-roi_x, roi_y, roi_w, roi_h = 528, 63, 1221, 1096  # ROI for one big image, cropped to the borders of the colors of parts
-
-
-class FixedCrop(object):
-    def __call__(self, img):
-        return img.crop((roi_x, roi_y, roi_x + roi_w, roi_y + roi_h))
-
-
-# --- Transforms ---
-base_tf = transforms.Compose([
-    FixedCrop(),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),  # Resize after ROI crop
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std),
-])
-
-aug_tf1 = transforms.Compose([
-    FixedCrop(),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ColorJitter(brightness=0.25, contrast=0.30, saturation=0.12, hue=0.02),
-    transforms.RandomAffine(degrees=2, translate=(0.01, 0.01), scale=(0.99, 1.01), fill=(128, 128, 128)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std),
-])
-
-aug_tf2 = transforms.Compose([
-    FixedCrop(),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ColorJitter(brightness=0.22, contrast=0.22, saturation=0.10, hue=0.015),
-    transforms.RandomAffine(degrees=1, translate=(0.01, 0.01), scale=(0.995, 1.005), shear=1, fill=(128, 128, 128)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std),
-])
-
-val_tf = transforms.Compose([
-    FixedCrop(),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std),
-])
-
-
-# --- Triple Aug Dataset (unchanged) ---
-class TripleAugDataset(Dataset):
-    def __init__(self, base_ds, base_tf, aug_tf1, aug_tf2):
-        self.base_ds = base_ds
-        self.base_tf = base_tf
-        self.aug_tf1 = aug_tf1
-        self.aug_tf2 = aug_tf2
-        self.classes = base_ds.classes
-
-    def __len__(self):
-        return len(self.base_ds) * 3
-
-    def __getitem__(self, i):
-        j = i // 3
-        variant = i % 3
-        path, y = self.base_ds.samples[j]
-        img = Image.open(path).convert("RGB")
-        if variant == 0:
-            x = self.base_tf(img)
-        elif variant == 1:
-            x = self.aug_tf1(img)
-        else:
-            x = self.aug_tf2(img)
-        return x, y
 
 
 def evaluate(model, loader, device, criterion):
@@ -98,22 +32,34 @@ def evaluate(model, loader, device, criterion):
     return loss_sum / total, correct / total
 
 
+def preprocess_train(img):
+    arr = np.array(img)
+    arr = VisionProcessor.preprocess(arr, resize_to=IMG_SIZE, normalize=True)
+    return torch.tensor(arr, dtype=torch.float)
+
+
+def preprocess_val(img):
+    arr = np.array(img)
+    arr = VisionProcessor.preprocess(arr, resize_to=IMG_SIZE, normalize=True)
+    return torch.tensor(arr, dtype=torch.float)
+
+
 def main():
     torch.manual_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f'device: {device}')
-    t0 = time.time()  # Start timer
+    print(f'Device: {device}')
     out = Path(OUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
-    # Datasets
-    train_base = datasets.ImageFolder(Path(DATA_ROOT) / "train")
-    val_ds = datasets.ImageFolder(Path(DATA_ROOT) / "validation", transform=val_tf)
-    train_ds = TripleAugDataset(train_base, base_tf, aug_tf1, aug_tf2)
-    print(f"Classes: {train_ds.classes}")
-    print(f"Train originals: {len(train_base)}, effective: {len(train_ds)}")
-    print(f"Val: {len(val_ds)}")
-    train_loader = DataLoader(train_ds, batch_size=BATCH, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_ds, batch_size=BATCH, shuffle=False, num_workers=2)
+
+    # Data
+    train_base = datasets.ImageFolder(Path(DATA_ROOT) / "train", transform=preprocess_train)
+    val_ds = datasets.ImageFolder(Path(DATA_ROOT) / "validation", transform=preprocess_val)
+    print(f"Classes: {train_base.classes}")
+    print(f"Train count: {len(train_base)}")
+    print(f"Val count: {len(val_ds)}")
+    train_loader = DataLoader(train_base, batch_size=BATCH, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=BATCH, shuffle=False)
+
     # Model
     model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
     model.fc = nn.Linear(model.fc.in_features, 2)
@@ -137,6 +83,7 @@ def main():
         print(f"Epoch {ep:02d}/{EPOCHS} train={run_loss / seen:.4f} val={val_loss:.4f} acc={val_acc:.4f}")
         if val_acc > best_acc:
             best_acc = val_acc
+            roi_x, roi_y, roi_w, roi_h = vision_pipeline.ROI
             roi_tag = f"roi{roi_x}_{roi_y}_{roi_w}_{roi_h}"
             save_name = (
                 f"SC_{roi_tag}_res{IMG_SIZE}"
@@ -146,7 +93,7 @@ def main():
 
             torch.save({
                 "model_state": model.state_dict(),
-                "classes": train_ds.classes,
+                "classes": train_base.classes,
                 "img_size": IMG_SIZE,
                 "roi": (roi_x, roi_y, roi_w, roi_h),
                 "epoch": ep,
@@ -154,7 +101,7 @@ def main():
             }, save_path)
             print(f"Saved {save_name}")
 
-    print(f"Training complete in {time.time() - t0:.1f}s. Best val acc={best_acc:.4f}")
+    print(f"Training complete, Best val acc={best_acc:.4f}")
 
 
 if __name__ == "__main__":
