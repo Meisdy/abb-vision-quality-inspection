@@ -6,13 +6,13 @@ from vision_pipeline import VisionProcessor
 from PIL import Image
 import numpy as np
 
-MODEL_NAME = "SC_roi528_63_1221_1096_res512_e04_lr1e-03_acc1.000.pt"
+MODEL_NAME = "SC_roi528_63_1221_1096_res512_e06_lr1e-03_acc1.000.pt"
 SOURCE_PATH = Path("models") / MODEL_NAME
 IMAGE_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\test_images")
-ROI = (528, 63, 1221, 1096)
+
 
 def load_model():
-    ckpt = torch.load(SOURCE_PATH, map_location="cpu")
+    ckpt = torch.load(SOURCE_PATH, map_location="cuda" if torch.cuda.is_available() else "cpu")
     classes = ckpt["classes"]
     img_size = ckpt.get("img_size", 256)
     model = models.resnet18(weights=None)
@@ -21,19 +21,22 @@ def load_model():
     model.eval()
     return model, classes, img_size
 
+
 @torch.no_grad()
 def predict_one(model, classes, npimg, img_size):
     # Use VisionProcessor for all pre-processing
-    x = VisionProcessor.preprocess(npimg, ROI, resize_to=img_size, normalize=True, visualisation=False)
+    x = VisionProcessor.preprocess(npimg, resize_to=img_size, normalize=True, visualisation=False)
     tensor = torch.from_numpy(x).unsqueeze(0)  # [1, C, H, W]
     logits = model(tensor)
     prob = logits.softmax(1)[0]
     conf, idx = torch.max(prob, dim=0)
     print(f"{classes[idx]} ({float(conf):.3f})")
 
+
 def pil_path_to_cv2(p):
     img = Image.open(p).convert("RGB")
     return np.array(img)
+
 
 if __name__ == "__main__":
     model, classes, img_size = load_model()
