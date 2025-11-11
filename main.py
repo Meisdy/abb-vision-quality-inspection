@@ -38,7 +38,7 @@ def evaluate_part(Camera):
 
     # Capture image from camera
     img = Camera.capture_raw()
-    img = Camera.preprocess(img, True)
+    ### ZZZ Either preprocess here or later in evaluate_image() ###
     cv2.waitKey()
     cv2.destroyAllWindows()
 
