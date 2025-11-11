@@ -6,16 +6,16 @@ from torchvision import datasets, transforms, models
 from PIL import Image
 
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
-OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML"
+OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 10
+EPOCHS = 5
 BATCH = 8
 IMG_SIZE = 512  # Set to whatever model expects
 LR = 1e-3
 mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 
 # --- ROI Crop (change only here for different ROI)
-roi_x, roi_y, roi_w, roi_h = 528, 63, 1221, 1096
+roi_x, roi_y, roi_w, roi_h = 528, 63, 1221, 1096  # ROI for one big image, cropped to the borders of the colors of parts
 
 
 class FixedCrop(object):
@@ -102,7 +102,7 @@ def main():
     torch.manual_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'device: {device}')
-    t0 = time.time()
+    t0 = time.time()  # Start timer
     out = Path(OUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
     # Datasets
@@ -137,12 +137,23 @@ def main():
         print(f"Epoch {ep:02d}/{EPOCHS} train={run_loss / seen:.4f} val={val_loss:.4f} acc={val_acc:.4f}")
         if val_acc > best_acc:
             best_acc = val_acc
+            roi_tag = f"roi{roi_x}_{roi_y}_{roi_w}_{roi_h}"
+            save_name = (
+                f"SC_{roi_tag}_res{IMG_SIZE}"
+                f"_e{ep:02d}_lr{LR:.0e}_acc{val_acc:.3f}.pt"
+            )
+            save_path = out / save_name
+
             torch.save({
                 "model_state": model.state_dict(),
                 "classes": train_ds.classes,
-                "img_size": IMG_SIZE
-            }, out / "best.pt")
-            print("Saved best.pt")
+                "img_size": IMG_SIZE,
+                "roi": (roi_x, roi_y, roi_w, roi_h),
+                "epoch": ep,
+                "val_acc": val_acc
+            }, save_path)
+            print(f"Saved {save_name}")
+
     print(f"Training complete in {time.time() - t0:.1f}s. Best val acc={best_acc:.4f}")
 
 
