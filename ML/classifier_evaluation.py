@@ -1,21 +1,15 @@
 from pathlib import Path
 import torch
-from torchvision import transforms, models
-from PIL import Image
+from torchvision import models
 import torch.nn as nn
-import sys
+from vision_pipeline import VisionProcessor
+from PIL import Image
+import numpy as np
 
-# Set only the model NAME here — folder path stays static!
 MODEL_NAME = "SC_roi528_63_1221_1096_res512_e04_lr1e-03_acc1.000.pt"
 SOURCE_PATH = Path("models") / MODEL_NAME
-IMAGE_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data")
-roi_x, roi_y, roi_w, roi_h = 528, 63, 1221, 1096
-
-
-class FixedCrop(object):
-    def __call__(self, img):
-        return img.crop((roi_x, roi_y, roi_x + roi_w, roi_y + roi_h))
-
+IMAGE_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\test_images")
+ROI = (528, 63, 1221, 1096)
 
 def load_model():
     ckpt = torch.load(SOURCE_PATH, map_location="cpu")
@@ -25,27 +19,24 @@ def load_model():
     model.fc = nn.Linear(model.fc.in_features, 2)
     model.load_state_dict(ckpt["model_state"], strict=True)
     model.eval()
-    tf = transforms.Compose([
-        FixedCrop(),
-        transforms.Resize((img_size, img_size)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ])
-    return model, tf, classes
-
+    return model, classes, img_size
 
 @torch.no_grad()
-def predict_one(model, tf, classes, path):
-    img = Image.open(path).convert("RGB")
-    x = tf(img).unsqueeze(0)
-    logits = model(x)
+def predict_one(model, classes, npimg, img_size):
+    # Use VisionProcessor for all pre-processing
+    x = VisionProcessor.preprocess(npimg, ROI, resize_to=img_size, normalize=True, visualisation=False)
+    tensor = torch.from_numpy(x).unsqueeze(0)  # [1, C, H, W]
+    logits = model(tensor)
     prob = logits.softmax(1)[0]
     conf, idx = torch.max(prob, dim=0)
-    print(f"{Path(path).name}: {classes[idx]} ({float(conf):.3f})")
+    print(f"{classes[idx]} ({float(conf):.3f})")
 
+def pil_path_to_cv2(p):
+    img = Image.open(p).convert("RGB")
+    return np.array(img)
 
 if __name__ == "__main__":
-    model, tf, classes = load_model()
+    model, classes, img_size = load_model()
     print('Classes loaded:', classes)
     exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
     if IMAGE_PATH.exists() and IMAGE_PATH.is_dir():
@@ -54,6 +45,11 @@ if __name__ == "__main__":
             print(f"No images found in {IMAGE_PATH}")
         else:
             for p in files:
-                predict_one(model, tf, classes, p)
+                try:
+                    npimg = pil_path_to_cv2(p)
+                    print(f"{p.name}: ", end="")
+                    predict_one(model, classes, npimg, img_size)
+                except Exception as e:
+                    print(f"Failed to read {p}: {e}")
     else:
         print(f"Image folder not found: {IMAGE_PATH}")
