@@ -4,9 +4,7 @@ import sys
 
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else 'image_data/validation/false_yellow_hard_071125_13.jpg'
-
-    img = cv2.imread(path)
+    img = cv2.imread('very_false_yellow_101125_04.jpg')
     if img is None:
         print("Failed to read image")
         return
