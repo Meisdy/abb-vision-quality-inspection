@@ -1,10 +1,11 @@
-import logging
-import cv2
 import os
-import time
+import cv2
+import torch
+import logging
 import abb_robot_comm
 import vision_pipeline
-from ML.inference import evaluate_image, get_status
+import ML.classifier_evaluation as ml
+from vision_pipeline import VisionProcessor
 
 os.environ["PYLON_CAMEMU"] = "3"
 
@@ -32,27 +33,25 @@ def setup_logging():
     logging.getLogger().setLevel(logging.INFO)
 
 
-def evaluate_part(Camera):
-    """Capture image and evaluate for defects"""
-    logging.info("Evaluating part...")
+def evaluate_part(Camera, ml_evaluator) -> str:
+    logging.info("Starting part evaluation")
 
     # Capture image from camera
-    img = Camera.capture_raw()
-    ### ZZZ Either preprocess here or later in evaluate_image() ###
-    cv2.waitKey()
-    cv2.destroyAllWindows()
-
+    img = Camera.capture_raw()  # BGR, numpy array
     if img is None:
         logging.error("Failed to capture image")
         return False
 
-    # Evaluate using trained model
-    loss = evaluate_image(img)
-    status = get_status(loss)
+    # Classify using the trained model
+    logging.info(f"Loaded model with classes: {ml_evaluator.classes}")
+    label, confidence = ml_evaluator.predict_one(img)  # pass raw image, gets processed in method
+    logging.info(f"Classification result: {label} with confidence {confidence:.4f}")
 
-    logging.info(f"Loss: {loss:.6f} → {status}")
+    # Get all classes from the evaluator but incorrect_mix
+    good_classes = [cls for cls in ml_evaluator.classes if cls != 'incorrect_mix']
 
-    return status == "OK"
+    # Return status
+    return 'complete' if label in good_classes else 'part bad'
 
 
 def main():
@@ -61,6 +60,7 @@ def main():
     try:
         # Initialize camera once
         Camera = vision_pipeline.Camera(exposure_time=30000.0, frame_rate=30.0)
+        ml_evaluator = ml.ClassifierEvaluator()
 
         while True:
             Robot = abb_robot_comm.RobotComm(IP_ABB_ROBOT)
@@ -69,13 +69,11 @@ def main():
 
             if Robot.receive_message() == "evaluate":
                 logging.info("Received evaluate command from robot.")
-                part_status = evaluate_part(Camera)
+                part_status = evaluate_part(Camera, ml_evaluator)
                 if part_status:
                     Robot.send_message("complete")
                 else:
                     Robot.send_message("part bad")
-
-            time.sleep(2)
 
     except Exception as e:
         logging.error(f"Error: {e}")
