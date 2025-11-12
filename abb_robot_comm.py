@@ -36,7 +36,7 @@ class RobotComm:
             # Accept incoming client connection
             (self.client_socket, self.client_ip) = self.socket.accept()
             logger.info(f"Robot at address {self.client_ip} connected.")
-            logger.info("If you would like to end the program, enter 'quit'.")
+            #logger.info("If you would like to end the program, enter 'quit'.")
 
         except socket.error as e:
             logger.error(f"Socket error on connect: {e}")
