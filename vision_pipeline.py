@@ -127,7 +127,7 @@ class VisionProcessor:
         if visualisation:
             cv2.namedWindow('Preprocessed Image', cv2.WINDOW_NORMAL)
             cv2.imshow('Preprocessed Image', img)
-            cv2.resizeWindow('Preprocessed Image', 800, 800)
+            cv2.resizeWindow('Preprocessed Image', 1000, 1000)
             cv2.waitKey(0)
             cv2.destroyWindow('Preprocessed Image')
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
