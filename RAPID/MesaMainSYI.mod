@@ -136,7 +136,7 @@ PROC VisionEvaluation()
         TcpSendMessage("evaluate");
         answer := TCPReceiveMessage();      
         
-        IF answer = "complete" THEN
+        IF answer = "COMPLETE" THEN
             visionResult := 0;
             TPWrite "Vision Result: Complete";
 
