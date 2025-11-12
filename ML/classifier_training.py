@@ -1,3 +1,4 @@
+import time
 import torch
 import numpy as np
 import torch.nn as nn
@@ -8,11 +9,12 @@ from vision_pipeline import VisionProcessor
 from torch.utils.data import DataLoader
 from torchvision import datasets, models
 
+
 # ----- CONFIGURATION -----
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 10
+EPOCHS = 5
 BATCH = 8
 IMG_SIZE = 512
 LR = 1e-3
@@ -111,7 +113,7 @@ def main():
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimz = optim.Adam(model.parameters(), lr=LR)
-    best_acc = 0.0
+    best_acc = 0.5  # Minimum accuracy to beat for saving model
 
     # ------ Training loop ------
     for ep in range(1, EPOCHS + 1):
@@ -134,9 +136,10 @@ def main():
             best_acc = val_acc
             roi_x, roi_y, roi_w, roi_h = vision_pipeline.ROI
             roi_tag = f"roi{roi_x}_{roi_y}_{roi_w}_{roi_h}"
+            datetime_str = time.strftime("%Y%m%d%H%M")  # e.g. '2025-11-12_15'
             save_name = (
                 f"SC_{roi_tag}_res{IMG_SIZE}"
-                f"_e{ep:02d}_lr{LR:.0e}_acc{val_acc:.3f}.pt"
+                f"_e{ep:02d}_batch{BATCH}_lr{LR}_acc{val_acc:.3f}_{datetime_str}.pt"
             )
             save_path = out / save_name
             torch.save({
@@ -145,7 +148,9 @@ def main():
                 "img_size": IMG_SIZE,
                 "roi": (roi_x, roi_y, roi_w, roi_h),
                 "epoch": ep,
-                "val_acc": val_acc
+                "val_acc": val_acc,
+                "batch_size": BATCH,
+                "learning_rate": LR
             }, save_path)
             print(f"Saved {save_name}")
 
