@@ -7,9 +7,9 @@ from vision_pipeline import Camera
 os.environ["PYLON_CAMEMU"] = "3"
 
 # Configuration
-CONFIG_NAME = "very_false_yellow_101125"
-NUM_ITERATIONS = 5
-SAVE_DIR = "image_data"
+CONFIG_NAME = "correct_testSpez_121125"
+NUM_ITERATIONS = 1
+SAVE_DIR = "image_data/test_images/"
 
 
 def capture_training_photos(camera, config_name, iteration, save_dir, cv_window):
