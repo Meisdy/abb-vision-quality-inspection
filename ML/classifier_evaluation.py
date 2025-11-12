@@ -1,4 +1,3 @@
-# python
 import torch
 import numpy as np
 import torch.nn as nn
@@ -8,8 +7,8 @@ from torchvision import models
 from vision_pipeline import VisionProcessor
 
 
-MODEL_NAME = "SC_roi528_63_1221_1096_res512_e06_lr1e-03_acc1.000.pt"
-MODEL_PATH = Path("models") / MODEL_NAME
+MODEL_NAME = "SC_roi528_63_1221_1096_res512_e02_batch8_lr0.001_acc1.000_2025-11-12_16_M_S.pt"
+MODEL_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models") / MODEL_NAME
 IMAGE_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\test_images")  # Folder containing test images
 
 
@@ -55,7 +54,7 @@ if __name__ == "__main__":
                 try:
                     npimg = pil_path_to_cv2(p)
                     label, conf = evaluator.predict_one(npimg)
-                    print(f"{p.name}: {label} ({conf:.4f})")
+                    print(f"{p.name}: {label} ({conf:.3f})")
                 except Exception as e:
                     print(f"Failed to read {p}: {e}")
     else:
