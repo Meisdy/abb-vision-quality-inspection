@@ -2,14 +2,17 @@ import os
 import sys
 import cv2
 import vision_pipeline
-from vision_pipeline import Camera
+from vision_pipeline import Camera, VisionProcessor
 
 os.environ["PYLON_CAMEMU"] = "3"
 
 # Configuration
-CONFIG_NAME = "correct_testSpez_121125"
-NUM_ITERATIONS = 1
-SAVE_DIR = "image_data/test_images/"
+CONFIG_NAME = "top_yellow_correct_131125"
+NUM_ITERATIONS = 20
+SAVE_DIR = "image_data/Classifier/validation/top_yellow_correct"
+
+ROI_BOT = (575, 730, 1115, 381)
+ROI_TOP = (581, 90, 1110, 400)
 
 
 def capture_training_photos(camera, config_name, iteration, save_dir, cv_window):
@@ -31,8 +34,10 @@ def capture_training_photos(camera, config_name, iteration, save_dir, cv_window)
             print("ERROR: Failed to capture image")
             return False
 
+        image = VisionProcessor.crop(image_raw, roi=ROI_TOP)
+
         # Display
-        display_img = image_raw.copy()
+        display_img = image.copy()
         cv2.putText(display_img, "Press SPACE to capture, ESC to terminate", (30, 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
         cv2.putText(display_img, f"Iteration {iteration + 1}/{NUM_ITERATIONS}", (30, 100),
@@ -46,7 +51,7 @@ def capture_training_photos(camera, config_name, iteration, save_dir, cv_window)
 
         if key == 32:  # SPACE - capture
             filename_jpg = f"{save_dir}/{config_name}_{iteration:02d}.jpg"
-            cv2.imwrite(filename_jpg, image_raw)
+            cv2.imwrite(filename_jpg, image)
             print(f"✓ Saved: {filename_jpg}")
             return True
 
