@@ -4,7 +4,7 @@ import sys
 
 
 def main():
-    img = cv2.imread('very_false_yellow_101125_04.jpg')
+    img = cv2.imread('image_data/test_131125_00.jpg')
     if img is None:
         print("Failed to read image")
         return
