@@ -7,7 +7,7 @@ from torchvision import models
 from vision_pipeline import VisionProcessor
 
 
-MODEL_NAME = "SC_roi528_63_1221_1096_res512_e02_batch8_lr0.001_acc1.000_2025-11-12_16_M_S.pt"
+MODEL_NAME = "SC_roi528_63_1221_1096_res512_e19_batch12_lr0.002_acc0.984_20251113_1354.pt"
 MODEL_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models") / MODEL_NAME
 IMAGE_PATH = Path(r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\test_images")  # Folder containing test images
 
