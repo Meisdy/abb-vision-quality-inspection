@@ -14,10 +14,10 @@ from torchvision import datasets, models
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 5
-BATCH = 8
+EPOCHS = 20
+BATCH = 12
 IMG_SIZE = 512
-LR = 1e-3
+LR = 2e-3
 
 
 # ----- METRIC AND EVALUATION -----
@@ -132,11 +132,11 @@ def main():
         print(f"Epoch {ep:02d}/{EPOCHS} train={run_loss / seen:.4f} val={val_loss:.4f} acc={val_acc:.4f}")
 
         # Save model if it improves best observed validation accuracy
-        if val_acc > best_acc:
+        if val_acc >= best_acc:
             best_acc = val_acc
             roi_x, roi_y, roi_w, roi_h = vision_pipeline.ROI
             roi_tag = f"roi{roi_x}_{roi_y}_{roi_w}_{roi_h}"
-            datetime_str = time.strftime("%Y%m%d%H%M")  # e.g. '2025-11-12_15'
+            datetime_str = time.strftime("%Y%m%d_%H%M")  # e.g. '2025-11-12_15'
             save_name = (
                 f"SC_{roi_tag}_res{IMG_SIZE}"
                 f"_e{ep:02d}_batch{BATCH}_lr{LR}_acc{val_acc:.3f}_{datetime_str}.pt"
