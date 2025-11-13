@@ -29,10 +29,7 @@ while True:
     rgb = np.asarray(rgb, dtype=np.uint8)  # ensure dtype
 
     # Show cropped view (use BGR for OpenCV display)
-    try:
-        cv2.imshow("Captured Image", VisionProcessor.crop(display_img))
-    except Exception:
-        cv2.imshow("Captured Image", display_img)
+    cv2.imshow("Captured Image", VisionProcessor.crop(display_img))
 
     # Classify using the trained model (expects RGB numpy)
     label, confidence = ml_evaluator.predict_one(rgb)
