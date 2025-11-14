@@ -121,7 +121,8 @@ class VisionProcessor:
 
     @staticmethod
     def preprocess(image, roi=ROI, resize_to=None, normalize=False, visualisation=False):
-        img = VisionProcessor.crop(image, roi)
+        if roi:
+            img = VisionProcessor.crop(image, roi)
         if resize_to:
             img = cv2.resize(img, (resize_to, resize_to))
         if visualisation:
