@@ -7,10 +7,11 @@ from vision_pipeline import Camera, VisionProcessor
 os.environ["PYLON_CAMEMU"] = "3"
 
 # Configuration
-CONFIG_NAME = "top_yellow_correct_131125"
-NUM_ITERATIONS = 20
-SAVE_DIR = "image_data/Classifier/validation/top_yellow_correct"
+CONFIG_NAME = "test_eval_false"
+NUM_ITERATIONS = 100
+SAVE_DIR = "image_data/test_images"
 
+USE_ROI = False
 ROI_BOT = (575, 730, 1115, 381)
 ROI_TOP = (581, 90, 1110, 400)
 
@@ -33,9 +34,10 @@ def capture_training_photos(camera, config_name, iteration, save_dir, cv_window)
         if image_raw is None:
             print("ERROR: Failed to capture image")
             return False
-
-        image = VisionProcessor.crop(image_raw, roi=ROI_TOP)
-
+        if USE_ROI:
+            image = VisionProcessor.crop(image_raw, roi=ROI_TOP)
+        else:
+            image = image_raw
         # Display
         display_img = image.copy()
         cv2.putText(display_img, "Press SPACE to capture, ESC to terminate", (30, 50),
