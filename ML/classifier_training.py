@@ -13,13 +13,11 @@ from torchvision import datasets, models
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 10
+EPOCHS = 50
 BATCH = 64
 IMG_SIZE = 256
 LR = 2e-3
 
-IMNET_MEAN = np.array([0.485, 0.456, 0.406])
-IMNET_STD  = np.array([0.229, 0.224, 0.225])
 
 
 # ----- METRIC AND EVALUATION -----
@@ -104,8 +102,8 @@ def main():
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimz = optim.Adam(model.parameters(), lr=LR)
-    best_acc = 0.5  # Minimum accuracy to beat for saving model
-
+    best_acc = .8  # Minimum accuracy to beat for saving model
+    best_val_loss = .7  # Minimum val loss to beat when acc is same
     # ------ Training loop ------
     for ep in range(1, EPOCHS + 1):
         model.train()
@@ -124,7 +122,10 @@ def main():
 
         # Save model if it improves best observed validation accuracy
         if val_acc >= best_acc:
+            if val_acc == best_acc and val_loss > best_val_loss:
+                continue  # Only save if val_loss improved when acc is same
             best_acc = val_acc
+            best_val_loss = val_loss
             roi_x, roi_y, roi_w, roi_h = vision_pipeline.ROI
             roi_tag = f"roi{roi_x}_{roi_y}_{roi_w}_{roi_h}"
             datetime_str = time.strftime("%Y%m%d_%H%M")  # e.g. '2025-11-12_15'
