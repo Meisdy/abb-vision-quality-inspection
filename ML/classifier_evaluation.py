@@ -1,12 +1,13 @@
+import cv2
 import torch
 import numpy as np
+import torch.nn as nn
+from classifier_training import preprocess_val
 from PIL import Image
 from pathlib import Path
 from torchvision import models
-import cv2
-import torch.nn as nn
 
-MODEL_NAME = "SC_2ROI_c2res256_batch64_lr2e-03_acc1.00_e10_20251114_1537.pt"
+MODEL_NAME = "SC_2ROI_c2res256_batch64_lr2e-03_acc1.00_e10_20251116_1406.pt"
 MODEL_PATH = Path(
     r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models") / MODEL_NAME
 IMAGE_PATH = Path(
@@ -24,14 +25,6 @@ def pil_path_to_cv2(p: Path) -> np.ndarray:
     return np.asarray(img, dtype=np.uint8)
 
 
-def preprocess_val(img, img_size):
-    arr = np.array(img)
-    arr = cv2.resize(arr, (img_size, img_size), interpolation=cv2.INTER_LINEAR)
-    arr = arr.astype("float32") / 255.0
-    arr = arr.transpose(2, 0, 1)  # Channel order (C,H,W) for torch
-    return torch.tensor(arr, dtype=torch.float32)
-
-
 class ClassifierEvaluator:
     def __init__(self, model_path=MODEL_PATH):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,14 +37,17 @@ class ClassifierEvaluator:
         model.eval()
         self.model = model.to(self.device)
         self.ROIS = {"top": ROI_TOP, "bot": ROI_BOT}
+        self.model_info = (
+            f'Model data: classes={self.classes}, img_size={self.img_size}, loss={ckpt["train_loss"]:.4f}, '
+            f'val_acc={ckpt["val_acc"]:.2f}, batch_size={ckpt["batch_size"]}, lr={ckpt["learning_rate"]}')
 
     @torch.no_grad()
     def predict_one(self, npimg):
         results = []
         for key in ["top", "bot"]:
             x, y, w, h = self.ROIS[key]
-            crop = npimg[y:y + h, x:x + w]
-            tensor = preprocess_val(crop, self.img_size).unsqueeze(0).to(self.device)
+            cropped_img = npimg[y:y + h, x:x + w]
+            tensor = preprocess_val(cropped_img, self.img_size).unsqueeze(0).to(self.device)
 
             logits = self.model(tensor)  # logits [web:15]
             prob = logits.softmax(1)[0]  # probabilities [web:17][web:16]
@@ -78,7 +74,6 @@ class ClassifierEvaluator:
 
 if __name__ == "__main__":
     evaluator = ClassifierEvaluator()
-    print("Classes loaded:", evaluator.classes)
     exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
     correct_count = 0
     total_count = 0
@@ -107,6 +102,7 @@ if __name__ == "__main__":
                     print(f"Failed to read {p}: {e}")
             if total_count > 0:
                 percent_correct = (correct_count / total_count) * 100
+                print(evaluator.model_info)
                 print(f"\nCorrect predictions: {correct_count}/{total_count} ({percent_correct:.2f}%)")
             else:
                 print("\nNo predictions made.")
