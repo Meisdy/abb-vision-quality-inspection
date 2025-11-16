@@ -13,11 +13,10 @@ from torchvision import datasets, models
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 50
+EPOCHS = 2
 BATCH = 64
 IMG_SIZE = 256
 LR = 2e-3
-
 
 
 # ----- METRIC AND EVALUATION -----
@@ -61,9 +60,9 @@ def preprocess_train(img):
     return torch.tensor(arr, dtype=torch.float32)
 
 
-def preprocess_val(img):
+def preprocess_val(img, img_size=IMG_SIZE):
     arr = np.array(img)
-    arr = cv2.resize(arr, (IMG_SIZE, IMG_SIZE), interpolation=cv2.INTER_LINEAR)
+    arr = cv2.resize(arr, (img_size, img_size), interpolation=cv2.INTER_LINEAR)
     arr = arr.astype("float32") / 255.0
     arr = arr.transpose(2, 0, 1)
     return torch.tensor(arr, dtype=torch.float32)
@@ -86,7 +85,6 @@ def main():
     out = Path(OUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
 
-
     # Data loading—from disk folders, expects folders as class names
     train_base = datasets.ImageFolder(Path(DATA_ROOT) / "train", transform=preprocess_train)
     val_ds = datasets.ImageFolder(Path(DATA_ROOT) / "validation", transform=preprocess_val)
@@ -104,6 +102,7 @@ def main():
     optimz = optim.Adam(model.parameters(), lr=LR)
     best_acc = .8  # Minimum accuracy to beat for saving model
     best_val_loss = .7  # Minimum val loss to beat when acc is same
+
     # ------ Training loop ------
     for ep in range(1, EPOCHS + 1):
         model.train()
