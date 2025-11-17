@@ -2,7 +2,7 @@ import cv2
 import torch
 import numpy as np
 import torch.nn as nn
-from classifier_training import preprocess_val
+from ML.classifier_training import preprocess_val
 from PIL import Image
 from pathlib import Path
 from torchvision import models
@@ -16,7 +16,7 @@ IMAGE_PATH = Path(
 ROI_BOT = (575, 730, 1115, 381)
 ROI_TOP = (581, 90, 1110, 400)
 
-CONF_THRESH = 0.60  # softmax probability threshold
+CONF_THRESH = 0.80  # softmax probability threshold
 
 
 def pil_path_to_cv2(p: Path) -> np.ndarray:
