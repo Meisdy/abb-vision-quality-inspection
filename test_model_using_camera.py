@@ -32,15 +32,12 @@ while True:
     cv2.imshow("Captured Image", VisionProcessor.crop(display_img))
 
     # Classify using the trained model (expects RGB numpy)
-    label, confidence = ml_evaluator.predict_one(rgb)
-    print(f"Classification result: {label.upper()} with confidence {confidence:.2f}")
-
-    if confidence < 0.6:
-        logging.warning("Low confidence in prediction, marking as incorrect mix")
-        label = 'incorrect_mix'
-
-    part_status = False if label == 'incorrect_mix' else True
-    print(f"Part status: {'GOOD' if part_status else 'Incorrect mix'}")
+    results, status = ml_evaluator.predict_one(rgb)
+    status_str = "GOOD" if status else "BAD"
+    print(f"Prediction: {status_str}")
+    for region, label, conf in results:
+        # show raw confidence regardless of override
+        print(f"  {region}: {label:<20} conf: {conf * 100:.2f}%")
 
     key = cv2.waitKey(0) & 0xFF
     if key == 27:  # ESC to exit
