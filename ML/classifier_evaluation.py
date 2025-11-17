@@ -49,25 +49,31 @@ class ClassifierEvaluator:
             cropped_img = npimg[y:y + h, x:x + w]
             tensor = preprocess_val(cropped_img, self.img_size).unsqueeze(0).to(self.device)
 
-            logits = self.model(tensor)  # logits [web:15]
-            prob = logits.softmax(1)[0]  # probabilities [web:17][web:16]
-            conf, idx = torch.max(prob, dim=0)  # top-1 confidence [web:12]
+            logits = self.model(tensor)  # model outputs logits for classes [web:23][web:19]
+            prob = logits.softmax(1)[0]  # convert logits to probabilities along class dim [web:12][web:20]
+            conf, idx = torch.max(prob, dim=0)  # top-1 confidence and class index [web:16][web:17]
             label = self.classes[idx]
 
             # Override to "mix" on low confidence
             if float(conf) < CONF_THRESH:
                 label = "mix"
+                print(f"Low confidence ({conf:.2f}) for {key} region, overriding label to 'mix'.")
 
             results.append((key, label, float(conf)))
 
-        # Status computation: any "mix" => BAD; both yellow_correct => GOOD
-        labels = [r[1] for r in results]
-        if ("yellow_correct" in labels[0]) and ("yellow_correct" in labels[1]):
-            status = 1  # good
-        elif ("mix" in labels[0]) or ("mix" in labels[1]):
-            status = 0  # bad
+        # New status logic:
+        # 1) If one is "mix" -> BAD (0)
+        # 2) Else if both have the same label (regardless what it is) -> GOOD (1)
+        # 3) Else -> BAD (0)
+        label_top = results[0][1]
+        label_bot = results[1][1]
+
+        if label_top == "mix" or label_bot == "mix":
+            status = 0  # bad [web:24]
+        elif label_top == label_bot:
+            status = 1  # good [web:24]
         else:
-            status = 0  # bad
+            status = 0  # bad [web:24]
 
         return results, status
 
