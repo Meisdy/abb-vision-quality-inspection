@@ -2,12 +2,12 @@ import cv2
 import torch
 import numpy as np
 import torch.nn as nn
-from ML.classifier_training import preprocess_val
+from ML.classifier_training import preprocess_for_ml
 from PIL import Image
 from pathlib import Path
 from torchvision import models
 
-MODEL_NAME = "SC_2ROI_c2res256_batch64_lr2e-03_acc1.00_e10_20251116_1406.pt"
+MODEL_NAME = "SC_2ROI_c4res512_batch64_lr2e-03_acc1.00_e24_20251118_1112.pt"
 MODEL_PATH = Path(
     r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models") / MODEL_NAME
 IMAGE_PATH = Path(
@@ -16,7 +16,7 @@ IMAGE_PATH = Path(
 ROI_BOT = (575, 730, 1115, 381)
 ROI_TOP = (581, 90, 1110, 400)
 
-CONF_THRESH = 0.80  # softmax probability threshold
+CONF_THRESH = 0.85  # softmax probability threshold
 
 
 def pil_path_to_cv2(p: Path) -> np.ndarray:
@@ -47,7 +47,7 @@ class ClassifierEvaluator:
         for key in ["top", "bot"]:
             x, y, w, h = self.ROIS[key]
             cropped_img = npimg[y:y + h, x:x + w]
-            tensor = preprocess_val(cropped_img, self.img_size).unsqueeze(0).to(self.device)
+            tensor = preprocess_for_ml(cropped_img, self.img_size).unsqueeze(0).to(self.device)
 
             logits = self.model(tensor)  # model outputs logits for classes [web:23][web:19]
             prob = logits.softmax(1)[0]  # convert logits to probabilities along class dim [web:12][web:20]
