@@ -13,9 +13,9 @@ from torchvision import datasets, models
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
 
-EPOCHS = 2
+EPOCHS = 30
 BATCH = 64
-IMG_SIZE = 256
+IMG_SIZE = 512
 LR = 2e-3
 
 
@@ -52,15 +52,7 @@ def evaluate(model, loader, device, criterion):
 
 
 # ----- IMAGE PREPROCESSING -----
-def preprocess_train(img):
-    arr = np.array(img)  # Convert PIL.Image to numpy
-    arr = cv2.resize(arr, (IMG_SIZE, IMG_SIZE), interpolation=cv2.INTER_LINEAR)
-    arr = arr.astype("float32") / 255.0  # Normalize to [0, 1]
-    arr = arr.transpose(2, 0, 1)  # Channel order (C,H,W) for torch
-    return torch.tensor(arr, dtype=torch.float32)
-
-
-def preprocess_val(img, img_size=IMG_SIZE):
+def preprocess_for_ml(img, img_size=IMG_SIZE):
     arr = np.array(img)
     arr = cv2.resize(arr, (img_size, img_size), interpolation=cv2.INTER_LINEAR)
     arr = arr.astype("float32") / 255.0
@@ -86,8 +78,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     # Data loading—from disk folders, expects folders as class names
-    train_base = datasets.ImageFolder(Path(DATA_ROOT) / "train", transform=preprocess_train)
-    val_ds = datasets.ImageFolder(Path(DATA_ROOT) / "validation", transform=preprocess_val)
+    train_base = datasets.ImageFolder(Path(DATA_ROOT) / "train", transform=preprocess_for_ml)
+    val_ds = datasets.ImageFolder(Path(DATA_ROOT) / "validation", transform=preprocess_for_ml)
     print(f"Classes: {train_base.classes}")
     print(f"Train count: {len(train_base)}")
     print(f"Val count: {len(val_ds)}")
