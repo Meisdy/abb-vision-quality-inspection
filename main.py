@@ -1,7 +1,8 @@
 import os
 import cv2
-import numpy as np
+import time
 import logging
+import numpy as np
 import abb_robot_comm
 import vision_pipeline
 import ML.classifier_evaluation as ml
@@ -11,7 +12,7 @@ os.environ["PYLON_CAMEMU"] = "3"
 # Constants
 USE_CAMERA = True
 USE_ROBOT = True
-SHOW_IMAGES = False
+DEBUG = False
 IP_ABB_ROBOT = '192.168.125.5'
 maxCamerasToUse = 1
 
@@ -33,7 +34,7 @@ def setup_logging():
     logging.getLogger().setLevel(logging.INFO)
 
 
-def evaluate_part(Camera, ml_evaluator) -> bool:
+def evaluate_part(Camera, ml_evaluator):
     # Capture image from camera
     img_bgr = Camera.capture_raw()  # BGR, numpy array
     if img_bgr is None:
@@ -44,21 +45,20 @@ def evaluate_part(Camera, ml_evaluator) -> bool:
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     img_rgb = np.asarray(img_rgb, dtype=np.uint8)  # ensure dtype    if img is None:
 
-    if SHOW_IMAGES:
-        cv2.imshow("Captured Image", vision_pipeline.VisionProcessor.crop(img_bgr))
-        cv2.waitKey(1)
+    if DEBUG:
+        cv2.waitKey(0)
         logging.info(f"Loaded model with classes: {ml_evaluator.classes}")
 
     # Classify using the trained model (expects RGB numpy)
     results, status = ml_evaluator.predict_one(img_rgb)
     status_str = "GOOD" if status else "BAD"
-    logging.info(f"Prediction: {status_str}")
+    logging.info(f"Prediction: {status_str}:")
     for region, label, conf in results:
         # show raw confidence regardless of override
         logging.info(f"  {region}: {label:<20} conf: {conf * 100:.2f}%")
 
     # Return status
-    return False if status == 'BAD' else True
+    return status, img_bgr
 
 
 def main():
@@ -76,13 +76,15 @@ def main():
 
             if Robot.receive_message() == "evaluate":
                 logging.info("Received evaluate command from robot.")
-                part_status = evaluate_part(Camera, ml_evaluator)
+                part_status, image = evaluate_part(Camera, ml_evaluator)
                 if part_status:
                     Robot.send_message("COMPLETE")
                 else:
                     Robot.send_message("BAD_PART")
-
             logging.info('Client disconnected')
+            cv2.imshow("Captured Image", vision_pipeline.VisionProcessor.crop(image))
+            time.sleep(10)
+            cv2.destroyAllWindows()
 
     except Exception as e:
         logging.error(f"Error: {e}")
