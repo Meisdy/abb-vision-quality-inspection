@@ -11,6 +11,7 @@ os.environ["PYLON_CAMEMU"] = "3"
 # Constants
 USE_CAMERA = True
 USE_ROBOT = True
+SHOW_IMAGES = False
 IP_ABB_ROBOT = '192.168.125.5'
 maxCamerasToUse = 1
 
@@ -33,31 +34,31 @@ def setup_logging():
 
 
 def evaluate_part(Camera, ml_evaluator) -> bool:
-    logging.info("Starting part evaluation")
-
     # Capture image from camera
-    img = Camera.capture_raw()  # BGR, numpy array
-
-    if img is None:
+    img_bgr = Camera.capture_raw()  # BGR, numpy array
+    if img_bgr is None:
         logging.error("Failed to capture image")
         return False
 
     # Convert BGR -> RGB so preprocessing matches Image.open(...).convert('RGB')
-    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    rgb_img = np.asarray(rgb_img, dtype=np.uint8)  # ensure dtype    if img is None:
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    img_rgb = np.asarray(img_rgb, dtype=np.uint8)  # ensure dtype    if img is None:
 
-    # Classify using the trained model
-    logging.info(f"Loaded model with classes: {ml_evaluator.classes}")
-    label, confidence = ml_evaluator.predict_one(rgb_img)  # pass raw image, gets processed in method
-    logging.info(f"Classification result: {label.upper()} with confidence {confidence:.4f}")
+    if SHOW_IMAGES:
+        cv2.imshow("Captured Image", vision_pipeline.VisionProcessor.crop(img_bgr))
+        cv2.waitKey(1)
+        logging.info(f"Loaded model with classes: {ml_evaluator.classes}")
 
-    # Determine if part is correct or incorrect
-    if confidence < 0.6:
-        logging.warning("Low confidence in prediction, marking as incorrect mix")
-        label = 'incorrect_mix'
+    # Classify using the trained model (expects RGB numpy)
+    results, status = ml_evaluator.predict_one(img_rgb)
+    status_str = "GOOD" if status else "BAD"
+    logging.info(f"Prediction: {status_str}")
+    for region, label, conf in results:
+        # show raw confidence regardless of override
+        logging.info(f"  {region}: {label:<20} conf: {conf * 100:.2f}%")
 
     # Return status
-    return False if label == 'incorrect_mix' else True
+    return False if status == 'BAD' else True
 
 
 def main():
