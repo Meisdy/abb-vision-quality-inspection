@@ -1,3 +1,11 @@
+"""
+classifier_training.py
+
+Training pipeline for image classification using PyTorch.
+Loads datasets, sets up a ResNet18 model, and trains using Adam optimizer.
+Includes best-model saving by validation accuracy, preprocessing, evaluation, and flexible paths/hyperparameters.
+"""
+
 import time
 import cv2
 import torch
@@ -12,30 +20,26 @@ from torchvision import datasets, models
 # ----- CONFIGURATION -----
 DATA_ROOT = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\Classifier"
 OUT_DIR = r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\ML\models"
-
-EPOCHS = 30
+EPOCHS = 5
 BATCH = 64
 IMG_SIZE = 512
 LR = 2e-3
 
 
 # ----- METRIC AND EVALUATION -----
-def evaluate(model, loader, device, criterion):
+def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, criterion: nn.Module) -> tuple[float, float]:
     """
-    Evaluate model on the provided data loader, calculate average loss and batch accuracy.
-
-    Can be reused for final model validation after training, for hyperparameter search,
-    or for model evaluation on new datasets. Returns mean loss and accuracy.
+    Evaluate model on provided data loader, returning average loss and accuracy.
 
     Args:
-        model: torch.nn.Module, the classification model.
-        loader: torch.utils.data.DataLoader, test/val data.
-        device: torch.device, target hardware.
-        criterion: loss function, e.g. CrossEntropyLoss.
+        model: Classification model (torch.nn.Module).
+        loader: DataLoader to iterate over.
+        device: Target hardware (torch.device).
+        criterion: Loss function.
 
     Returns:
-        avg_loss: mean loss over all samples
-        accuracy: (0.0 ... 1.0) fraction of correct predictions
+        avg_loss: float
+        accuracy: float (fraction of correct predictions)
     """
     model.eval()
     loss_sum, correct, total = 0.0, 0, 0
@@ -52,7 +56,17 @@ def evaluate(model, loader, device, criterion):
 
 
 # ----- IMAGE PREPROCESSING -----
-def preprocess_for_ml(img, img_size=IMG_SIZE):
+def preprocess_for_ml(img, img_size: int = IMG_SIZE) -> torch.Tensor:
+    """
+    Preprocess one image for classification model input.
+
+    Args:
+        img: Input image (ndarray or PIL).
+        img_size: Target size for resizing.
+
+    Returns:
+        Preprocessed torch.Tensor suitable for model input.
+    """
     arr = np.array(img)
     arr = cv2.resize(arr, (img_size, img_size), interpolation=cv2.INTER_LINEAR)
     arr = arr.astype("float32") / 255.0
@@ -63,39 +77,41 @@ def preprocess_for_ml(img, img_size=IMG_SIZE):
 # ----- TRAINING PIPELINE -----
 def main():
     """
-    Main training entrypoint. Loads datasets, initializes model, trains with Adam optimizer.
-    - Saves best model observed (based on validation accuracy)
-    - Prints epoch-level metrics (train loss, val loss, val acc)
+    Main training entrypoint: loads data, initializes model, trains, and saves the best checkpoint.
 
-    To reuse: Adapt paths/classes and hyperparameters for other projects,
-    swap model for architecture changes, modify transforms for new preprocessing.
+    Prints epoch metrics and best validation results.
+    Adapt paths/classes/hparams for new projects or architectures as needed!
     """
     start_time = time.time()
-    torch.manual_seed(42)  # Deterministic training for full reproducibility.
+    torch.manual_seed(42)  # Deterministic training
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Device: {device}')
+
     out = Path(OUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
 
-    # Data loading—from disk folders, expects folders as class names
+    # Data loading — from disk folders, expects folders as class names
     train_base = datasets.ImageFolder(Path(DATA_ROOT) / "train", transform=preprocess_for_ml)
     val_ds = datasets.ImageFolder(Path(DATA_ROOT) / "validation", transform=preprocess_for_ml)
     print(f"Classes: {train_base.classes}")
     print(f"Train count: {len(train_base)}")
     print(f"Val count: {len(val_ds)}")
+
     train_loader = DataLoader(train_base, batch_size=BATCH, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH, shuffle=False)
 
-    # Model setup—ResNet backbone, final layer to match num classes
+    # Model setup: ResNet, update classifier head
     model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
     model.fc = nn.Linear(model.fc.in_features, len(train_base.classes))
     model = model.to(device)
+
     criterion = nn.CrossEntropyLoss()
     optimz = optim.Adam(model.parameters(), lr=LR)
-    best_acc = .8  # Minimum accuracy to beat for saving model
-    best_val_loss = .7  # Minimum val loss to beat when acc is same
 
-    # ------ Training loop ------
+    best_acc = .8  # Save if above
+    best_val_loss = .7
+
+    # Training loop
     for ep in range(1, EPOCHS + 1):
         model.train()
         run_loss, seen = 0.0, 0
@@ -108,18 +124,19 @@ def main():
             optimz.step()
             run_loss += loss.item() * x.size(0)
             seen += x.size(0)
+
         val_loss, val_acc = evaluate(model, val_loader, device, criterion)
         print(f"Epoch {ep:02d}/{EPOCHS} train={run_loss / seen:.4f} val={val_loss:.4f} acc={val_acc:.2f}")
 
-        # Save model if it improves best observed validation accuracy
+        # Save best model (improved val_acc or same acc with improved loss)
         if val_acc >= best_acc:
             if val_acc == best_acc and val_loss > best_val_loss:
-                continue  # Only save if val_loss improved when acc is same
+                continue
             best_acc = val_acc
             best_val_loss = val_loss
+
             roi_x, roi_y, roi_w, roi_h = vision_pipeline.ROI
-            roi_tag = f"roi{roi_x}_{roi_y}_{roi_w}_{roi_h}"
-            datetime_str = time.strftime("%Y%m%d_%H%M")  # e.g. '2025-11-12_15'
+            datetime_str = time.strftime("%Y%m%d_%H%M")
             save_name = (
                 f"SC_2ROI_c{len(train_base.classes)}res{IMG_SIZE}"
                 f"_batch{BATCH}_lr{LR:.0e}_acc{val_acc:.2f}_e{ep:02d}_{datetime_str}.pt"
