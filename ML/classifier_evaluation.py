@@ -1,3 +1,11 @@
+"""
+classifier_evaluation.py
+
+Script and class for evaluating a trained image classifier on a folder of test images.
+Supports BGR and RGB input, extracts top/bottom regions, applies confidence logic,
+and prints prediction accuracy. Intended for post-training model validation.
+"""
+
 import cv2
 import torch
 import numpy as np
@@ -15,7 +23,6 @@ IMAGE_PATH = Path(
 
 ROI_BOT = (575, 730, 1115, 381)
 ROI_TOP = (581, 90, 1110, 400)
-
 CONF_THRESH = 0.85  # softmax probability threshold
 
 
@@ -26,6 +33,8 @@ def pil_path_to_cv2(p: Path) -> np.ndarray:
 
 
 class ClassifierEvaluator:
+    """Evaluate a loaded model on image regions, with post-hoc confidence labeling."""
+
     def __init__(self, model_path=MODEL_PATH):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         ckpt = torch.load(model_path, map_location=self.device)
@@ -38,51 +47,55 @@ class ClassifierEvaluator:
         self.model = model.to(self.device)
         self.ROIS = {"top": ROI_TOP, "bot": ROI_BOT}
         self.model_info = (
-            f'Model data: classes={self.classes}, img_size={self.img_size}, loss={ckpt["train_loss"]:.4f}, '
-            f'val_acc={ckpt["val_acc"]:.2f}, batch_size={ckpt["batch_size"]}, lr={ckpt["learning_rate"]}')
+            f'Model data: classes={self.classes}, img_size={self.img_size}, '
+            f'loss={ckpt["train_loss"]:.4f}, val_acc={ckpt["val_acc"]:.2f}, '
+            f'batch_size={ckpt["batch_size"]}, lr={ckpt["learning_rate"]}'
+        )
 
     @torch.no_grad()
-    def predict_one(self, npimg):
+    def predict_one(self, img: np.ndarray, input_is_bgr: bool = False):
+        """
+        Run prediction on a single image, cropping the two ROIs and returning label/confidence.
+
+        Args:
+            img (np.ndarray): Input image.
+            input_is_bgr (bool): If True, converts BGR to RGB.
+
+        Returns:
+            results: List of (region, label, confidence)
+            status: 1 (good) or 0 (bad) depending on logic
+        """
+        if input_is_bgr:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_rgb = np.asarray(img, dtype=np.uint8)
+
         results = []
         for key in ["top", "bot"]:
             x, y, w, h = self.ROIS[key]
-            cropped_img = npimg[y:y + h, x:x + w]
+            cropped_img = img_rgb[y:y + h, x:x + w]
             tensor = preprocess_for_ml(cropped_img, self.img_size).unsqueeze(0).to(self.device)
-
-            logits = self.model(tensor)  # model outputs logits for classes [web:23][web:19]
-            prob = logits.softmax(1)[0]  # convert logits to probabilities along class dim [web:12][web:20]
-            conf, idx = torch.max(prob, dim=0)  # top-1 confidence and class index [web:16][web:17]
+            logits = self.model(tensor)
+            prob = logits.softmax(1)[0]
+            conf, idx = torch.max(prob, dim=0)
             label = self.classes[idx]
 
-            # Override to "mix" on low confidence
             if float(conf) < CONF_THRESH:
                 label = "mix"
                 print(f"Low confidence ({conf:.2f}) for {key} region, overriding label to 'mix'.")
 
             results.append((key, label, float(conf)))
 
-        # New status logic:
-        # 1) If one is "mix" -> BAD (0)
-        # 2) Else if both have the same label (regardless what it is) -> GOOD (1)
-        # 3) Else -> BAD (0)
-        label_top = results[0][1]
-        label_bot = results[1][1]
-
-        if label_top == "mix" or label_bot == "mix":
-            status = 0  # bad [web:24]
-        elif label_top == label_bot:
-            status = 1  # good [web:24]
-        else:
-            status = 0  # bad [web:24]
-
+        label_top, label_bot = results[0][1], results[1][1]
+        status = 1 if (label_top == label_bot and label_top != "mix") else 0
         return results, status
 
 
 if __name__ == "__main__":
-    evaluator = ClassifierEvaluator()
     exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+    evaluator = ClassifierEvaluator()
     correct_count = 0
     total_count = 0
+
     if IMAGE_PATH.exists() and IMAGE_PATH.is_dir():
         files = sorted([p for p in IMAGE_PATH.iterdir() if p.suffix.lower() in exts])
         if not files:
@@ -96,7 +109,6 @@ if __name__ == "__main__":
                     true_value = "GOOD" if "correct" in p.name.lower() else "BAD"
                     print(f"\n{p.name}: Prediction: {status_str} - True Value: {true_value}")
                     for region, label, conf in results:
-                        # show raw confidence regardless of override
                         print(f"  {region}: {label:<20} conf: {conf * 100:.2f}%")
                     if status_str == true_value:
                         print("  ✅ Correct prediction")
@@ -114,3 +126,4 @@ if __name__ == "__main__":
                 print("\nNo predictions made.")
     else:
         print(f"Image folder not found: {IMAGE_PATH}")
+
