@@ -1,4 +1,9 @@
-# abb_robot_comm.py
+"""
+abb_robot_comm.py
+
+Provides the RobotComm class for TCP/IP socket communication with an ABB robot client.
+Supports connecting, sending/receiving messages, and managing connections for industrial automation scenarios.
+"""
 
 import socket
 import logging
@@ -79,10 +84,9 @@ class RobotComm:
         """
         try:
             if self.client_socket:
-                data = None # Reset data before receiving
+                data = None  # Critical buffer reset to avoid bug
                 data = self.client_socket.recv(4096)
                 if len(data) == 0:
-                    # Client disconnected
                     logger.info("Client closed connection")
                     self.disconnect()
                     return None
