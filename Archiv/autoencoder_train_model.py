@@ -4,8 +4,8 @@ import torch.optim as optim
 import numpy as np
 import os
 
-from models import Autoencoder, DeepAutoencoder
-from vision_pipeline import load_images_npy, augment_for_anomaly
+from vision_pipeline import VisionProcessor
+from Archiv.autoencoder_models import Autoencoder
 from torch.utils.data import DataLoader, TensorDataset
 
 # Configuration
@@ -29,7 +29,7 @@ def main():
 
     # Load preprocessed images
     print('Loading images...')
-    images = load_images_npy('image_data/train/processed')
+    images = VisionProcessor.load_images_npy('image_data/train/processed')
 
     # Start with originals
     training_images = list(images)
@@ -40,7 +40,7 @@ def main():
         for img in images:
             img_hwc = np.transpose(img, (1, 2, 0))
             img_hwc = (img_hwc * 255).astype(np.uint8)
-            img_hwc = augment_for_anomaly(img_hwc)
+            img_hwc = VisionProcessor.augment_for_anomaly(img_hwc)
             img_aug = img_hwc / 255.0
             img_aug = np.transpose(img_aug, (2, 0, 1))
             training_images.append(img_aug)
@@ -95,9 +95,9 @@ def main():
         print(f'Epoch {epoch + 1:3d}/{EPOCHS} | Loss: {avg_loss:.10f}')
 
     # Save model with auto-generated name
-    os.makedirs('models', exist_ok=True)
+    os.makedirs('../ML/models', exist_ok=True)
     model_name = generate_model_name()
-    model_path = os.path.join('models', model_name)
+    model_path = os.path.join('../ML/models', model_name)
     torch.save(model.state_dict(), model_path)
     print(f'\n✓ Model saved: {model_name}')
 

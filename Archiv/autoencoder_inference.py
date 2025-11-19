@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models import Autoencoder
+from Archiv.autoencoder_models import Autoencoder
 
 # Global model (load once at startup)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

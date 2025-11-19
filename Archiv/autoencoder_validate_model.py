@@ -3,7 +3,6 @@ import torch.nn as nn
 import numpy as np
 import os
 from vision_pipeline import load_images_npy
-from models import Autoencoder
 
 # Configuration
 AUTOENCODER_NAME = 'AC_yellow_standard_e60_b4_lr20_res1024.pth'
@@ -56,15 +55,15 @@ def main():
 
     # Import the correct model class
     if use_deep:
-        from models import DeepAutoencoder
+        from Archiv.autoencoder_models import DeepAutoencoder
         model = DeepAutoencoder(use_attention=use_attention).to(device)
         model_type = "Deep " + ("Weighted" if use_attention else "Standard")
     else:
-        from models import Autoencoder
+        from Archiv.autoencoder_models import Autoencoder
         model = Autoencoder(use_attention=use_attention).to(device)
         model_type = "Weighted" if use_attention else "Standard"
 
-    path = os.path.join('models', AUTOENCODER_NAME)
+    path = os.path.join('../ML/models', AUTOENCODER_NAME)
     model.load_state_dict(torch.load(path, map_location=device))  # Add map_location=device
     model.eval()
 
