@@ -1,4 +1,5 @@
 # abb_robot_comm.py
+
 import socket
 import logging
 
@@ -8,12 +9,12 @@ logger = logging.getLogger(__name__)
 class RobotComm:
     """Handles TCP communication with a robot client."""
 
-    def __init__(self, ip, port=5000):
+    def __init__(self, ip: str, port: int = 5000):
         """
         Initialize RobotComm with IP and port.
 
         Args:
-            ip (str): IP address to bind
+            ip (str): IP address to bind.
             port (int): Port to bind (default: 5000).
         """
         self.ip = ip
@@ -22,7 +23,7 @@ class RobotComm:
         self.client_socket = None
         self.client_ip = None
 
-    def connect(self):
+    def connect(self) -> None:
         """
         Set up server socket and wait for client connection.
         Logs connection status and errors.
@@ -32,16 +33,12 @@ class RobotComm:
             self.socket.bind((self.ip, self.port))
             self.socket.listen()
             logger.info("Looking for TCP client")
-
-            # Accept incoming client connection
             (self.client_socket, self.client_ip) = self.socket.accept()
             logger.info(f"Robot at address {self.client_ip} connected.")
-            #logger.info("If you would like to end the program, enter 'quit'.")
-
         except socket.error as e:
             logger.error(f"Socket error on connect: {e}")
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """
         Close client and server sockets.
         Logs disconnection status and errors.
@@ -50,9 +47,8 @@ class RobotComm:
             if self.client_socket is not None:
                 self.client_socket.close()
                 self.client_socket = None
-                self.socket = None
-                logger.info("Disconnected from client.")
-
+            self.socket = None
+            logger.info("Disconnected from client.")
         except socket.error as e:
             logger.error(f"Socket error on disconnect: {e}")
 
@@ -70,7 +66,6 @@ class RobotComm:
             self.client_socket.send(message.encode("UTF-8"))
             logger.info(f"Message sent to client: {message}")
             return True
-
         except (socket.error, OSError) as e:
             logger.error(f"Error sending message: {e}")
             return False
@@ -97,36 +92,23 @@ class RobotComm:
             else:
                 logger.error("Receive failed: No client socket connected.")
                 return None
-
         except (socket.error, OSError) as e:
             logger.error(f"Error receiving message: {e}")
             return None
 
-    def communicate(self, message=None):
+    def communicate(self, message: str) -> str | None:
         """
-        Combined send and receive.
+        Send a message and receive a response from the client.
 
         Args:
-            message (str, optional): Message to send. If None, prompts user.
+            message (str): Message to send.
 
         Returns:
             str or None: Received message or None on communication error.
         """
         try:
-            while True:
-                if message is None:
-                    user_message = input("Please type your message: ")
-                else:
-                    user_message = message
-
-                if user_message.lower() == "quit":
-                    if self.send_message(user_message):
-                        logger.info("Goodbye!")
-                        return self.receive_message()
-                    break
-                else:
-                    if self.send_message(user_message):
-                        return self.receive_message()
+            if self.send_message(message):
+                return self.receive_message()
         except Exception as e:
             logger.error(f"Communication failure: {e}")
             return None
