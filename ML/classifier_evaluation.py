@@ -4,6 +4,7 @@ classifier_evaluation.py
 Script and class for evaluating a trained image classifier on a folder of test images.
 Supports BGR and RGB input, extracts top/bottom regions, applies confidence logic,
 and prints prediction accuracy. Intended for post-training model validation.
+ROI got redefined after Camera got forcefully removed. For live testing, the new quickfix ROI gets used.
 """
 
 import cv2
@@ -21,8 +22,8 @@ MODEL_PATH = Path(
 IMAGE_PATH = Path(
     r"C:\Users\Sandy\OneDrive - Högskolan Väst\Semester 3 Quarter 1\SYI700\2 Project\Code\SYI_Scripts\image_data\test_images")
 
-ROI_BOT = (575, 730, 1115, 381)
-ROI_TOP = (581, 90, 1110, 400)
+ROI_BOT = (605, 730, 1115, 381)  # (x, y, w, h) NEW ROIS AFTER CAMERA MOVE
+ROI_TOP = (605, 90, 1110, 400)  # (x, y, w, h)
 CONF_THRESH = 0.85  # softmax probability threshold
 
 
@@ -91,6 +92,11 @@ class ClassifierEvaluator:
 
 
 if __name__ == "__main__":
+
+    # Restore original ROI
+    ROI_BOT = (575, 730, 1115, 381)
+    ROI_TOP = (581, 90, 1110, 400)
+
     exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
     evaluator = ClassifierEvaluator()
     correct_count = 0
