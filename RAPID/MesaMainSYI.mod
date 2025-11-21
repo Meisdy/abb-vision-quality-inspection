@@ -14,6 +14,10 @@ MODULE MesaMainSYI
     PERS robtarget pTrajectory2:=[[229.77,386.33,223.91],[0.00232557,-0.055034,-0.998481,-0.000869737],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pFinal:=[[241.85,104.43,25.70],[0.00231013,-0.0468528,-0.998899,0.00112025],[-1,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
     PERS intnum visionResult := 0;
+    VAR intnum stopInt;
+    VAR bool pause;
+    VAR intnum lastState;
+
     
     ! Configuration constants
     CONST bool USE_PLC := False;
@@ -21,6 +25,7 @@ MODULE MesaMainSYI
 
     ! Main routine
     PROC main()
+        setupInterrupts;        ! Set
         TPErase;                ! Clear TP output
         SetupPlcCom;            ! Setup PLC com.
         SetupVisionSystem;      ! Setup Vision system
@@ -31,10 +36,19 @@ MODULE MesaMainSYI
     ENDPROC
     
     
+    
+PROC setupInterrupts()
+    IDelete stopInt;                            ! Make sure all previous interrupt instances are deleted
+    CONNECT stopInt WITH stopSignalFromPLC;     ! Create new instance of stopInt and connect to Trap
+    ISignalDI IxABBStop, 1, stopInt;            ! Trap shall execute on IxABBStop change to high
+    ! ISignalDI Di maybe add a manual pause when the button next to robot is pressed. 
+    
+ENDPROC
+    
 PROC SetupPlcCom()
     ! Update status
-    SetGO QiABBStatus, 1;              ! Status to Init
-    SetDO QiABBVerificationStatus, 1;  ! Reset part status to not good
+    SetGO QiABBStatus, 1;                       ! Status to Init
+    SetDO QiABBVerificationStatus, 1;           ! Reset part status to not good
             
     ! Log output
     IF USE_PLC THEN
@@ -68,6 +82,10 @@ PROC SetupVisionSystem()
 ENDPROC
 
 PROC GetPart()   
+    
+    ! If Robot shall be paused, pause it using function
+    PauseRobotCheck;
+    
     ! Update status
     SetGO QiABBStatus, 2;   ! Status to Get Part
 
@@ -196,6 +214,26 @@ PROC PickupAtConveyor(bool mode)
         MoveL Offs(pConveyor, 0, 0, 75), v200, z20, tGripper\WObj:=wobjConveyor;  ! Go back to approach Conveyor pos using offset
         MoveJ pTrajectory, v2500, z100, tGripper;                       ! Move to trajectory approach pos back to table
 ENDPROC
+
+PROC PauseRobotCheck()
+    IF pause THEN
+        lastState := QiABBStatus;
+        WHILE TRUE DO
+            SetGO QiABBStatus, 2;   ! Status to Pause
+            WaitTime 1;
+            IF IxxABBReset = 1 THEN
+                pause := FALSE;
+                SetGO QiABBStatus, lastState;   ! Status to Pause
+            ENDIF
+        ENDWHILE
+    ELSE
+    ENDIF
+ENDPROC
+
+
+TRAP stopSignalFromPLC
+    pause := TRUE;
+ENDTRAP
 
 
 
