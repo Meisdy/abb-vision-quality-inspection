@@ -12,7 +12,7 @@ MODULE MesaMainSYI
     PERS robtarget pConveyor:=[[271.00,105.88,5.32],[0.00504288,-0.671369,0.741071,0.00720437],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pTrajectory:=[[787.71,775.77,904.87],[0.00148502,0.494751,-0.869034,0.000424912],[0,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     PERS robtarget pTrajectory2:=[[229.77,386.33,223.91],[0.00232557,-0.055034,-0.998481,-0.000869737],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    PERS robtarget pFinal:=[[241.85,104.43,25.70],[0.00231013,-0.0468528,-0.998899,0.00112025],[-1,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; !!! ZZZ AGV POS
+    PERS robtarget pFinal:=[[241.85,104.43,25.70],[0.00231013,-0.0468528,-0.998899,0.00112025],[-1,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
     PERS intnum visionResult := 0;
     
     ! Configuration constants
@@ -103,7 +103,6 @@ PROC VisionEvaluation()
     ! Update status
     SetGO QiABBStatus, 3;   ! Status to part eval.
     
-    
     IF NOT USE_VISION THEN
         ! Manual vision system override
         TPReadFK visionResult, "Choose vision result?", "Complete (AGV)", "Incomplete (Conveyor)", stEmpty, stEmpty, stEmpty;
@@ -145,14 +144,14 @@ PROC ProcessPart()
     MoveL Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
 
     ! Check vision result and process part accordingly
-    IF visionResult = 0 THEN ! Part is complete, placing in onto AGV 
-        MoveJ pTrajectory2, v2500, z100, tGripper\WObj:=wobjTable;  ! Go to approach AGV pos
-        MoveL Offs(pFinal, 200, 0, 40), v2500, z15, tGripper\WObj:=wobjTable;  ! Go to approach AGV pos using offset
-        MoveL Offs(pFinal, 200, 0, 10), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach AGV pos using offset
-        MoveL Offs(pFinal, 0, 0, 10), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach AGV pos using offset
-        MoveL pFinal, v50, fine, tGripper\WObj:=wobjTable;                 ! Go to AGV pickup pos
+    IF visionResult = 0 THEN ! Part is complete, placing onto Table
+        MoveJ pTrajectory2, v2500, z100, tGripper\WObj:=wobjTable;  ! Go to approach Table Storage pos
+        MoveL Offs(pFinal, 200, 0, 40), v2500, z15, tGripper\WObj:=wobjTable;  ! Go to approach Table Storage pos using offset
+        MoveL Offs(pFinal, 200, 0, 10), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach Table Storage pos using offset
+        MoveL Offs(pFinal, 0, 0, 10), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach Table Storage pos using offset
+        MoveL pFinal, v50, fine, tGripper\WObj:=wobjTable;                 ! Go to Table Storage pickup pos
         OpenGripper;
-        MoveL Offs(pFinal, 0, 0, 40), v200, z15, tGripper\WObj:=wobjTable;  ! Go back to approach AGV pos using offset
+        MoveL Offs(pFinal, 0, 0, 40), v200, z15, tGripper\WObj:=wobjTable;  ! Go back to approach Table Storage pos using offset
     ELSEIF visionResult = 1 THEN ! Part is incomplete, placing back onto conveyor
         PickupAtConveyor(False);
     ELSE 
