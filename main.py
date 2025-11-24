@@ -52,7 +52,7 @@ def evaluate_part(Camera, ml_evaluator):
 
     # Classify using the trained model (expects RGB numpy, so set input_is_bgr=True)
     results, status = ml_evaluator.predict_one(img_bgr, input_is_bgr=True)
-    result_items = [f"{region}: {label:<20} conf: {conf * 100:.2f}%" for region, label, conf in results]
+    result_items = [f"{region}: {label:<15} conf: {conf * 100:.2f}%" for region, label, conf in results]
     logging.info(f"Prediction: {'GOOD' if status else 'BAD'}: {result_items}")
     return status, img_bgr
 
