@@ -46,6 +46,9 @@ class Camera:
         for i, cam in enumerate(cameras):
             cam.Attach(tlFactory.CreateDevice(devices[i]))
             logging.info(f"Using camera: {cam.GetDeviceInfo().GetModelName()}")
+            if cam.GetDeviceInfo().GetModelName() == 'Emulation':
+                logging.warning('No physical Camera connected!')
+
             cam.Open()
             cam.ExposureTime.SetValue(self.exposure_time)
             cam.AcquisitionFrameRateEnable.SetValue(True)
