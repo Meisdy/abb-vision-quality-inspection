@@ -1,4 +1,8 @@
 MODULE MesaMainSYI
+    ! This RAPID module controls an ABB robotic cell that performs pick-and-place handling of parts with optional PLC and vision system integration. 
+    ! It manages robot motion, pauses via interrupts, part pickup from a conveyor, vision-based inspection, and conditional placement of parts based on 
+    ! inspection results. The program is modular, with clear sections for setup, execution, and reset, supporting flexible operation in automated or manual modes.
+    
     PERS wobjdata wobjTable:=[FALSE,TRUE,"",[[1324.77,-472.104,426.917],[0.999992,0.000929973,-0.000683746,0.00391044]],[[0,0,0],[1,0,0,0]]];
     PERS wobjdata wobjConveyor:=[FALSE,TRUE,"",[[225.01,1139.56,326.568],[0.999943,-0.010696,-0.000444899,0.000237186]],[[0,0,0],[1,0,0,0]]];
     PERS tooldata tGripper:=[TRUE,[[0.51636,-0.710444,275.457],[1,0,0,0]],[26,[80,0,180],[1,0,0,0],0,0,0]];
@@ -15,8 +19,9 @@ MODULE MesaMainSYI
     PERS robtarget pFinal:=[[241.85,104.43,25.70],[0.00231013,-0.0468528,-0.998899,0.00112025],[-1,-1,-1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]]; 
     PERS intnum visionResult := 0;
     VAR intnum stopInt;
-    VAR bool pause;
     VAR intnum lastState;
+    VAR bool pause;
+
 
     
     ! Configuration constants
@@ -25,8 +30,8 @@ MODULE MesaMainSYI
 
     ! Main routine
     PROC main()
-        setupInterrupts;        ! Set
         TPErase;                ! Clear TP output
+        setupInterrupts;        ! Setup Interrupt for controlled pause
         SetupPlcCom;            ! Setup PLC com.
         SetupVisionSystem;      ! Setup Vision system
         GetPart;                ! Pickup Part and place to Camera System
@@ -40,8 +45,11 @@ MODULE MesaMainSYI
 PROC setupInterrupts()
     IDelete stopInt;                            ! Make sure all previous interrupt instances are deleted
     CONNECT stopInt WITH stopSignalFromPLC;     ! Create new instance of stopInt and connect to Trap
-    ISignalDI IxABBStop, 1, stopInt;            ! Trap shall execute on IxABBStop change to high
-    ! ISignalDI Di maybe add a manual pause when the button next to robot is pressed. 
+    IF USE_PLC THEN                             ! If PLC mode is on, use PLC signal to trigger interrupt. If not, use Readybutton from ABB
+        ISignalDI IxABBStop, 1, stopInt;
+    ELSE
+        ISignalDI diReadyButton, 1, stopInt;    ! Trap shall execute on IxABBStop change to high
+    ENDIF
     
 ENDPROC
     
@@ -83,9 +91,8 @@ ENDPROC
 
 PROC GetPart()   
     
-    ! If Robot shall be paused, pause it using function
-    PauseRobotCheck;
-    
+    PauseRobotCheck;   ! If Robot shall be paused, pause it using function. This is a pause check. 
+
     ! Update status
     SetGO QiABBStatus, 2;   ! Status to Get Part
 
@@ -100,7 +107,8 @@ PROC GetPart()
     
     ! Pickup at Conveyor
     PickupAtConveyor(True);
-     
+    PauseRobotCheck;   ! If Robot shall be paused, pause it using function. This is a pause check. 
+
     ! Place part below Camera and place it
     MoveJ pHomeTable, v2500, z100, tGripper\WObj:=wobjTable;            ! Go to table middle
     MoveJ Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
@@ -118,6 +126,8 @@ ENDPROC
 PROC VisionEvaluation()
     VAR string answer;
     
+    PauseRobotCheck;   ! If Robot shall be paused, pause it using function. This is a pause check. 
+    
     ! Update status
     SetGO QiABBStatus, 3;   ! Status to part eval.
     
@@ -133,11 +143,9 @@ PROC VisionEvaluation()
         IF answer = "COMPLETE" THEN
             visionResult := 0;
             TPWrite "Vision Result: Complete";
-
         ELSE
             VisionResult := 1;
             TPWrite "Vision Result: Incomplete";
-
         ENDIF
                
         ! Send info to PLC according to vision result
@@ -151,6 +159,8 @@ ENDPROC
 
 ! Process the part based on the vision evaluation results
 PROC ProcessPart()
+
+    PauseRobotCheck;   ! If Robot shall be paused, pause it using function. This is a pause check. 
     
     ! Update status
     SetGO QiABBStatus, 4;   ! Status to process part
@@ -160,6 +170,8 @@ PROC ProcessPart()
     MoveL pCamera, v50, fine, tGripper\WObj:=wobjTable;                 ! Go to camera dropoff pos
     CloseGripper;
     MoveL Offs(pCamera, 0, 0, 50), v200, z15, tGripper\WObj:=wobjTable;  ! Go to approach camera pos
+    
+    PauseRobotCheck;   ! If Robot shall be paused, pause it using function. This is a pause check. 
 
     ! Check vision result and process part accordingly
     IF visionResult = 0 THEN ! Part is complete, placing onto Table
@@ -202,10 +214,10 @@ PROC CloseGripper()
     WaitTime .3;
 ENDPROC
 
-PROC PickupAtConveyor(bool mode)
-        MoveJ pTrajectory, v2500, z100, tGripper;                       ! Move to trajectory approach pos back to table
-        MoveL Offs(pConveyor, 0, 0, 75), v200, z20, tGripper\WObj:=wobjConveyor;  ! Go to approach Conveyor pos using offset
-        MoveL pConveyor, v50, fine, tGripper\WObj:=wobjConveyor;                 ! Go to Conveyor pickup pos
+PROC PickupAtConveyor(bool mode) ! This function is for modularisation
+        MoveJ pTrajectory, v2500, z100, tGripper;                                   ! Move to trajectory approach pos back to table
+        MoveL Offs(pConveyor, 0, 0, 75), v200, z20, tGripper\WObj:=wobjConveyor;    ! Go to approach Conveyor pos using offset
+        MoveL pConveyor, v50, fine, tGripper\WObj:=wobjConveyor;                    ! Go to Conveyor pickup pos
         IF mode THEN
             CloseGripper;
         ELSE
@@ -215,26 +227,25 @@ PROC PickupAtConveyor(bool mode)
         MoveJ pTrajectory, v2500, z100, tGripper;                       ! Move to trajectory approach pos back to table
 ENDPROC
 
-PROC PauseRobotCheck()
+PROC PauseRobotCheck() ! This function call checks if a pause command has been activated by an interrupt. If it is activated, it waits for the Reset signal.
     IF pause THEN
-        lastState := QiABBStatus;
-        WHILE TRUE DO
-            SetGO QiABBStatus, 2;   ! Status to Pause
-            WaitTime 1;
-            IF IxxABBReset = 1 THEN
-                pause := FALSE;
-                SetGO QiABBStatus, lastState;   ! Status to Pause
-            ENDIF
-        ENDWHILE
+        lastState := QiABBStatus;   ! Remember the last state
+        SetGO QiABBStatus, 2;       ! Status to Pause
+        IF USE_PLC THEN
+            WaitDI IxABBReset, 1;
+        ELSE
+            WaitDI diReadyButton, 1;
+        ENDIF
+        
+        pause := FALSE;
+        SetGO QiABBStatus, lastState;   ! Status to Pause
+
     ELSE
     ENDIF
 ENDPROC
 
-
 TRAP stopSignalFromPLC
     pause := TRUE;
 ENDTRAP
-
-
 
 ENDMODULE
