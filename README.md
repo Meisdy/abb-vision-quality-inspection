@@ -1,6 +1,6 @@
 # Vision-Based Quality Inspection
 
-Python + Basler camera + ABB robot system for automatic GOOD/BAD part inspection.
+Python + Basler camera + ABB robot system for automatic GOOD/BAD part inspection, using a supervised ML classifier and TCP/IP.
 
 ## Components
 
