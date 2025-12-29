@@ -16,3 +16,13 @@ Python + Basler camera + ABB robot system for automatic GOOD/BAD part inspection
 1. Configure IP, camera, and model paths in `main.py`, `abb_robot_comm.py` and RAPID Script.
 2. Start the Python server
 3. Start the ABB Script, which connects to the server when available and chosen in setting flags.
+
+Obviously, the model needs to be retrained with a proper dataset that fits the desired usecase.
+
+## Video
+A simple video is available on Youtube (unlisted), which shows the Robot's movement and realtime evaluation, but does not show the code output.
+In the video, a good Part is processed and stored on the table. 
+
+[![Demo Video](https://img.youtube.com/vi/3qK5byHvfCA/maxresdefault.jpg)](https://youtu.be/3qK5byHvfCA)
+
+
